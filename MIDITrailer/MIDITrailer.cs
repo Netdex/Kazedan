@@ -15,6 +15,7 @@ using SlimDX;
 using SlimDX.DXGI;
 using SlimDX.Direct3D11;
 using SlimDX.Direct2D;
+using SlimDX.Direct3D9;
 using SlimDX.DirectWrite;
 using SlimDX.Windows;
 using Brush = SlimDX.Direct2D.Brush;
@@ -24,11 +25,17 @@ using FactoryDXGI = SlimDX.DXGI.Factory;
 using Font = System.Drawing.Font;
 using FontFamily = System.Drawing.FontFamily;
 using FontStyle = System.Drawing.FontStyle;
+using Format = SlimDX.DXGI.Format;
+using PresentFlags = SlimDX.DXGI.PresentFlags;
+using Surface = SlimDX.DXGI.Surface;
+using SwapChain = SlimDX.DXGI.SwapChain;
+using SwapEffect = SlimDX.DXGI.SwapEffect;
 using Timer = System.Timers.Timer;
+using Usage = SlimDX.DXGI.Usage;
 
 namespace MIDITrailer
 {
-    class Program
+    class MIDITrailer
     {
         private OutputDevice outDevice;
         private Sequence sequence;
@@ -48,10 +55,10 @@ namespace MIDITrailer
 
         private RenderTarget renderTarget;
 
-        public Program()
+        public MIDITrailer()
         {
-            eventTimer = new Timer(15) {Enabled = true};
-            timer = new Timer(15) {Enabled = true};
+            eventTimer = new Timer(5) {Enabled = true};
+            timer = new Timer(10) {Enabled = true};
             eventTimer.Elapsed += delegate(object sender, ElapsedEventArgs args)
             {
                 lock (backlog)
@@ -101,7 +108,7 @@ namespace MIDITrailer
                 ModeDescription = new ModeDescription(0, 0, new Rational(60, 1), Format.R8G8B8A8_UNorm),
                 SampleDescription = new SampleDescription(1, 0),
                 Flags = SwapChainFlags.AllowModeSwitch,
-                SwapEffect = SwapEffect.Discard
+                SwapEffect = SwapEffect.Discard,
             };
 
             // Create swap chain and Direct3D device
@@ -112,9 +119,10 @@ namespace MIDITrailer
 
             Surface backBuffer = Surface.FromSwapChain(swapChain, 0);
 
+            SizeF dpi;
             using (var factory = new FactoryD2D())
             {
-                var dpi = factory.DesktopDpi;
+                dpi = factory.DesktopDpi;
                 renderTarget = RenderTarget.FromDXGI(factory, backBuffer, new RenderTargetProperties()
                 {
                     HorizontalDpi = dpi.Width,
@@ -136,7 +144,7 @@ namespace MIDITrailer
             };
             form.FormClosing += MIDITrailer_FormClosing;
 
-            form.Size = SIZE;
+            form.Size = new Size((int) (SIZE.Width / (dpi.Width / 96f)), (int) (SIZE.Height / (dpi.Height / 96f)));
             form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
 
             brushes = new Brush[colors.Length];
@@ -147,7 +155,7 @@ namespace MIDITrailer
             {
                 Paint(renderTarget);
                 swapChain.Present(0, PresentFlags.None);
-                Thread.Sleep(16);
+                Thread.Sleep(10);
             });
 
             renderTarget.Dispose();
@@ -229,7 +237,7 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadAsync("D:/Music/midis/027-SuwaFoughtenField.mid");
+            sequence.LoadAsync("D:/Music/midis/Necrofantasia.mid");
         }
 
         const int KEY_HEIGHT = 40;
@@ -260,7 +268,7 @@ namespace MIDITrailer
                 {
                     Rectangle rect = new Rectangle(n.Key * kw, (int)n.Position, kw, (int)n.Length);
                     target.FillRectangle(brushes[n.Channel], rect);
-                    target.DrawRectangle(brushes[n.Channel], rect);
+                    target.DrawRectangle(brushes[17], rect);
                 }
             }
 
@@ -292,7 +300,7 @@ namespace MIDITrailer
 
         public static void Main(string[] args)
         {
-            Program program = new Program();
+            MIDITrailer program = new MIDITrailer();
             program.Init();
         }
     }
