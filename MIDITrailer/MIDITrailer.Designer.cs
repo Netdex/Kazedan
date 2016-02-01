@@ -49,7 +49,7 @@
             // paintTimer
             // 
             this.paintTimer.Enabled = true;
-            this.paintTimer.Interval = 15;
+            this.paintTimer.Interval = 20;
             this.paintTimer.Tick += new System.EventHandler(this.paintTimer_Tick);
             // 
             // MIDITrailer

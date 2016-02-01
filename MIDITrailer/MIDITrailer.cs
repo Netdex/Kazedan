@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Drawing.Text;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,9 +24,9 @@ namespace MIDITrailer
 
         private readonly Queue<Event> backlog = new Queue<Event>();
         private readonly List<Note> notes = new List<Note>();
-        private readonly Note[,] lastPlayed = new Note[16,128];
+        private readonly Note[,] lastPlayed = new Note[16, 128];
 
-        private const int DELAY = 2;
+        private const int DELAY = 3;
 
         private readonly Size SIZE = new Size(1024, 768);
         private readonly int[] keyPressed = new int[128];
@@ -53,8 +55,14 @@ namespace MIDITrailer
                 int vel = args.Message.Data2;
                 if (cmd == ChannelCommand.NoteOff || vel == 0)
                 {
-                    if (lastPlayed[channel,key] != null)
-                        lastPlayed[channel,key].Playing = false;
+                    if (lastPlayed[channel, key] != null)
+                    {
+                        Note n = lastPlayed[channel, key];
+                        n.Playing = false;
+                        if (n.Length == 0)
+                            lock (notes)
+                                notes.Remove(n);
+                    }
                 }
                 else if (cmd == ChannelCommand.NoteOn)
                 {
@@ -72,7 +80,7 @@ namespace MIDITrailer
                     {
                         notes.Add(n);
                     }
-                    lastPlayed[channel,key] = n;
+                    lastPlayed[channel, key] = n;
                 }
                 lock (backlog)
                 {
@@ -107,44 +115,58 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadAsync("D:/Music/midis/necrofantasia.mid");
+            sequence.LoadAsync("D:/Music/midis/thelostemotionmidi.mid");
         }
 
         const int KEY_HEIGHT = 40;
         const int BLACK_KEY_HEIGHT = 20;
-        readonly bool[] Black = { false, true, false, true, false, false, true, false, true, false, true, false };
+        readonly bool[] isBlack = { false, true, false, true, false, false, true, false, true, false, true, false };
+        private static readonly Brush[] brushes = { Brushes.Red, Brushes.Orange, Brushes.Yellow, Brushes.Green, Brushes.Blue, Brushes.Indigo, Brushes.Violet,
+                                            Brushes.Pink, Brushes.OrangeRed, Brushes.GreenYellow, Brushes.Lime, Brushes.Cyan, Brushes.Purple, Brushes.DarkViolet, Brushes.Bisque, Brushes.Brown };
 
-        private readonly Color[] colors = { Color.Red, Color.Orange, Color.Yellow, Color.Green, Color.Blue, Color.Indigo, Color.Violet,
-                                            Color.Pink, Color.OrangeRed, Color.GreenYellow, Color.Lime, Color.Cyan, Color.Purple, Color.DarkViolet };
+        private readonly Font debugFont = new Font(FontFamily.GenericMonospace, 10, FontStyle.Bold);
 
         protected override void OnPaint(PaintEventArgs args)
         {
             Graphics g = args.Graphics;
+            g.InterpolationMode = InterpolationMode.Low;
+            g.CompositingQuality = CompositingQuality.HighSpeed;
+            g.SmoothingMode = SmoothingMode.HighSpeed;
+            g.TextRenderingHint = TextRenderingHint.SystemDefault;
+            g.PixelOffsetMode = PixelOffsetMode.HighSpeed;
             g.Clear(Color.Gray);
 
-            float kw = SIZE.Width / 128.0f;
-            g.DrawString(notes.Count + "", new Font(FontFamily.GenericMonospace, 10), Brushes.Black, 10, 10);
-
+            int kw = (int)(SIZE.Width / 128.0f);
+            int keyboardY = SIZE.Height - KEY_HEIGHT;
             lock (notes)
             {
                 foreach (Note n in notes)
                 {
-                    g.FillRectangle(new SolidBrush(colors[n.Channel]), n.Key * kw, n.Position, kw, n.Length);
-                    g.DrawRectangle(Pens.Black, n.Key * kw, n.Position, kw, n.Length);
+                    Rectangle rect = new Rectangle(n.Key * kw, (int)n.Position, kw, (int)n.Length);
+                    g.FillRectangle(brushes[n.Channel], rect);
+                    g.DrawRectangle(Pens.Black, rect);
                 }
             }
 
-            g.FillRectangle(Brushes.White, 0, SIZE.Height - KEY_HEIGHT, SIZE.Width, KEY_HEIGHT);
+            g.FillRectangle(Brushes.White, 0, keyboardY, SIZE.Width, KEY_HEIGHT);
             for (int i = 0; i < 128; i++)
             {
-                if (Black[i % 12])
-                    g.FillRectangle(keyPressed[i] > 0 ? Brushes.Red : Brushes.Black, i * kw, SIZE.Height - KEY_HEIGHT, kw,
-                        BLACK_KEY_HEIGHT);
+                Rectangle rect = new Rectangle(i * kw, keyboardY, kw, KEY_HEIGHT);
+                if (isBlack[i % 12])
+                    g.FillRectangle(keyPressed[i] > 0 ? Brushes.Red : Brushes.Black, i * kw, keyboardY, kw, BLACK_KEY_HEIGHT);
                 else
                     if (keyPressed[i] > 0)
-                    g.FillRectangle(Brushes.Red, i * kw, SIZE.Height - KEY_HEIGHT, kw, KEY_HEIGHT);
-                g.DrawRectangle(Pens.Black, i * kw, SIZE.Height - KEY_HEIGHT, kw, KEY_HEIGHT);
+                    g.FillRectangle(Brushes.Red, rect);
+                g.DrawRectangle(Pens.Black, rect);
             }
+
+            string[] debug =
+            {
+                "       fps: " + fps,
+                "note_count: " + notes.Count
+            };
+            for(int i = 0; i < debug.Length; i++)
+                g.DrawString(debug[i], debugFont, Brushes.Black, 10, 10 + 15 * i);
         }
 
         private void MIDITrailer_FormClosing(object sender, FormClosingEventArgs e)
@@ -158,8 +180,9 @@ namespace MIDITrailer
 
         private void timer_Tick(object sender, EventArgs e)
         {
+            int keyboardY = SIZE.Height - KEY_HEIGHT;
             long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-            float speed = 1.0f * (SIZE.Height - KEY_HEIGHT) / (DELAY * 1000.0f);
+            float speed = 1.0f * (keyboardY) / (DELAY * 1000.0f);
             lock (notes)
             {
                 for (int i = 0; i < notes.Count; i++)
@@ -169,7 +192,7 @@ namespace MIDITrailer
                         n.Position = (now - n.Time) * speed - n.Length;
                     else
                         n.Length = (now - n.Time) * speed;
-                    if (n.Position > SIZE.Height - KEY_HEIGHT)
+                    if (n.Position > keyboardY)
                     {
                         notes.RemoveAt(i);
                         i--;
@@ -190,8 +213,15 @@ namespace MIDITrailer
             }
         }
 
+        private long lastFrame = -1;
+        private int fps;
+
         private void paintTimer_Tick(object sender, EventArgs e)
         {
+            long thisFrame = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+            long diff = thisFrame - lastFrame;
+            fps = (int)(1000.0 / diff);
+            lastFrame = thisFrame;
             Refresh();
         }
     }
