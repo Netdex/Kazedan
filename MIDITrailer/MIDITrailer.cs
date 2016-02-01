@@ -1,23 +1,35 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Sanford.Multimedia.Midi;
+using System.Timers;
+
+using SlimDX;
+using SlimDX.DXGI;
+using SlimDX.Direct3D11;
+using SlimDX.Direct2D;
+using SlimDX.DirectWrite;
+using SlimDX.Windows;
+using Brush = SlimDX.Direct2D.Brush;
+using Device = SlimDX.Direct3D11.Device;
+using FactoryD2D = SlimDX.Direct2D.Factory;
+using FactoryDXGI = SlimDX.DXGI.Factory;
+using Font = System.Drawing.Font;
+using FontFamily = System.Drawing.FontFamily;
+using FontStyle = System.Drawing.FontStyle;
+using Timer = System.Timers.Timer;
 
 namespace MIDITrailer
 {
-    public partial class MIDITrailer : Form
+    class Program
     {
-
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -31,18 +43,120 @@ namespace MIDITrailer
         private readonly Size SIZE = new Size(1024, 768);
         private readonly int[] keyPressed = new int[128];
 
-        public MIDITrailer()
+        private Timer eventTimer;
+        private Timer timer;
+
+        private RenderTarget renderTarget;
+
+        public Program()
         {
-            InitializeComponent();
-            this.SetStyle(ControlStyles.DoubleBuffer, true);
-            this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
-            this.SetStyle(ControlStyles.UserPaint, true);
+            eventTimer = new Timer(15) {Enabled = true};
+            timer = new Timer(15) {Enabled = true};
+            eventTimer.Elapsed += delegate(object sender, ElapsedEventArgs args)
+            {
+                lock (backlog)
+                {
+                    while (backlog.Any() && backlog.First().StartTime <= DateTime.Now)
+                    {
+                        Event ev = backlog.Dequeue();
+                        ev.Method();
+                    }
+                }
+            };
+            timer.Elapsed += delegate(object sender, ElapsedEventArgs args)
+            {
+                int keyboardY = (int) (renderTarget.Size.Height - KEY_HEIGHT);
+                long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+                float speed = 1.0f * (keyboardY) / (DELAY * 1000.0f);
+                lock (notes)
+                {
+                    for (int i = 0; i < notes.Count; i++)
+                    {
+                        Note n = notes[i];
+                        if (!n.Playing)
+                            n.Position = (now - n.Time) * speed - n.Length;
+                        else
+                            n.Length = (now - n.Time) * speed;
+                        if (n.Position > keyboardY)
+                        {
+                            notes.RemoveAt(i);
+                            i--;
+                        }
+                    }
+                }
+            };
         }
 
-
-        private void MIDITrailer_Load(object sender, EventArgs e)
+        public void Init()
         {
-            ClientSize = SIZE;
+            var form = new RenderForm("MIDITrailer");
+
+            // Create swap chain description
+            var swapChainDesc = new SwapChainDescription()
+            {
+                BufferCount = 2,
+                Usage = Usage.RenderTargetOutput,
+                OutputHandle = form.Handle,
+                IsWindowed = true,
+                ModeDescription = new ModeDescription(0, 0, new Rational(60, 1), Format.R8G8B8A8_UNorm),
+                SampleDescription = new SampleDescription(1, 0),
+                Flags = SwapChainFlags.AllowModeSwitch,
+                SwapEffect = SwapEffect.Discard
+            };
+
+            // Create swap chain and Direct3D device
+            // The BgraSupport flag is needed for Direct2D compatibility otherwise RenderTarget.FromDXGI will fail!
+            Device device;
+            SwapChain swapChain;
+            Device.CreateWithSwapChain(DriverType.Hardware, DeviceCreationFlags.BgraSupport, swapChainDesc, out device, out swapChain);
+
+            Surface backBuffer = Surface.FromSwapChain(swapChain, 0);
+
+            using (var factory = new FactoryD2D())
+            {
+                var dpi = factory.DesktopDpi;
+                renderTarget = RenderTarget.FromDXGI(factory, backBuffer, new RenderTargetProperties()
+                {
+                    HorizontalDpi = dpi.Width,
+                    VerticalDpi = dpi.Height,
+                    MinimumFeatureLevel = SlimDX.Direct2D.FeatureLevel.Default,
+                    PixelFormat = new PixelFormat(Format.R8G8B8A8_UNorm, AlphaMode.Ignore),
+                    Type = RenderTargetType.Default,
+                    Usage = RenderTargetUsage.None
+                });
+            }
+
+            using (var factory = swapChain.GetParent<FactoryDXGI>())
+                factory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
+
+            form.KeyDown += (o, e) =>
+            {
+                if (e.Alt && e.KeyCode == Keys.Enter)
+                    swapChain.IsFullScreen = !swapChain.IsFullScreen;
+            };
+            form.FormClosing += MIDITrailer_FormClosing;
+
+            form.Size = SIZE;
+            form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+
+            brushes = new Brush[colors.Length];
+            for (int i = 0; i < colors.Length; i++)
+                brushes[i] = new SolidColorBrush(renderTarget, new Color4(colors[i]));
+            Load();
+            MessagePump.Run(form, () =>
+            {
+                Paint(renderTarget);
+                swapChain.Present(0, PresentFlags.None);
+                Thread.Sleep(16);
+            });
+
+            renderTarget.Dispose();
+            swapChain.Dispose();
+            device.Dispose();
+        }
+
+        private void Load()
+        {
             outDevice = new OutputDevice(0);
             sequencer = new Sequencer();
             sequence = new Sequence();
@@ -115,58 +229,56 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadAsync("D:/Music/midis/thelostemotionmidi.mid");
+            sequence.LoadAsync("D:/Music/midis/027-SuwaFoughtenField.mid");
         }
 
         const int KEY_HEIGHT = 40;
         const int BLACK_KEY_HEIGHT = 20;
         readonly bool[] isBlack = { false, true, false, true, false, false, true, false, true, false, true, false };
-        private static readonly Brush[] brushes = { Brushes.Red, Brushes.Orange, Brushes.Yellow, Brushes.Green, Brushes.Blue, Brushes.Indigo, Brushes.Violet,
-                                            Brushes.Pink, Brushes.OrangeRed, Brushes.GreenYellow, Brushes.Lime, Brushes.Cyan, Brushes.Purple, Brushes.DarkViolet, Brushes.Bisque, Brushes.Brown };
+        private static readonly Color[] colors = {
+            Color.Red, Color.Orange, Color.Yellow,
+            Color.Green, Color.Blue, Color.Indigo,
+            Color.Violet, Color.Pink, Color.OrangeRed,
+            Color.GreenYellow, Color.Lime, Color.Cyan,
+            Color.Purple, Color.DarkViolet, Color.Bisque, Color.Brown, Color.White, Color.Black };
+
+        private static Brush[] brushes;
 
         private readonly Font debugFont = new Font(FontFamily.GenericMonospace, 10, FontStyle.Bold);
 
-        protected override void OnPaint(PaintEventArgs args)
+        public void Paint(RenderTarget target)
         {
-            Graphics g = args.Graphics;
-            g.InterpolationMode = InterpolationMode.Low;
-            g.CompositingQuality = CompositingQuality.HighSpeed;
-            g.SmoothingMode = SmoothingMode.HighSpeed;
-            g.TextRenderingHint = TextRenderingHint.SystemDefault;
-            g.PixelOffsetMode = PixelOffsetMode.HighSpeed;
-            g.Clear(Color.Gray);
+            target.BeginDraw();
+            target.Transform = Matrix3x2.Identity;
+            target.Clear(Color.Gray);
 
-            int kw = (int)(SIZE.Width / 128.0f);
-            int keyboardY = SIZE.Height - KEY_HEIGHT;
+            int kw = (int)(target.Size.Width / 128.0f);
+            int keyboardY = (int) (target.Size.Height - KEY_HEIGHT);
             lock (notes)
             {
                 foreach (Note n in notes)
                 {
                     Rectangle rect = new Rectangle(n.Key * kw, (int)n.Position, kw, (int)n.Length);
-                    g.FillRectangle(brushes[n.Channel], rect);
-                    g.DrawRectangle(Pens.Black, rect);
+                    target.FillRectangle(brushes[n.Channel], rect);
+                    target.DrawRectangle(brushes[n.Channel], rect);
                 }
             }
 
-            g.FillRectangle(Brushes.White, 0, keyboardY, SIZE.Width, KEY_HEIGHT);
+            target.FillRectangle(brushes[16], new RectangleF(0, keyboardY, target.Size.Width, KEY_HEIGHT));
             for (int i = 0; i < 128; i++)
             {
                 Rectangle rect = new Rectangle(i * kw, keyboardY, kw, KEY_HEIGHT);
                 if (isBlack[i % 12])
-                    g.FillRectangle(keyPressed[i] > 0 ? Brushes.Red : Brushes.Black, i * kw, keyboardY, kw, BLACK_KEY_HEIGHT);
+                    target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[17],
+                        new Rectangle(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
                 else
                     if (keyPressed[i] > 0)
-                    g.FillRectangle(Brushes.Red, rect);
-                g.DrawRectangle(Pens.Black, rect);
+                    target.FillRectangle(brushes[0], rect);
+                target.DrawRectangle(brushes[17], rect);
             }
-
-            string[] debug =
-            {
-                "       fps: " + fps,
-                "note_count: " + notes.Count
-            };
-            for(int i = 0; i < debug.Length; i++)
-                g.DrawString(debug[i], debugFont, Brushes.Black, 10, 10 + 15 * i);
+            //for (int i = 0; i < debug.Length; i++)
+            //    target.DrawText(debug[i], new TextFormat(), );.DrawString(debug[i], debugFont, Brushes.Black, 10, 10 + 15 * i);
+            target.EndDraw();
         }
 
         private void MIDITrailer_FormClosing(object sender, FormClosingEventArgs e)
@@ -178,51 +290,10 @@ namespace MIDITrailer
             outDevice.Dispose();
         }
 
-        private void timer_Tick(object sender, EventArgs e)
+        public static void Main(string[] args)
         {
-            int keyboardY = SIZE.Height - KEY_HEIGHT;
-            long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-            float speed = 1.0f * (keyboardY) / (DELAY * 1000.0f);
-            lock (notes)
-            {
-                for (int i = 0; i < notes.Count; i++)
-                {
-                    Note n = notes[i];
-                    if (!n.Playing)
-                        n.Position = (now - n.Time) * speed - n.Length;
-                    else
-                        n.Length = (now - n.Time) * speed;
-                    if (n.Position > keyboardY)
-                    {
-                        notes.RemoveAt(i);
-                        i--;
-                    }
-                }
-            }
-        }
-
-        private void eventTimer_Tick(object sender, EventArgs e)
-        {
-            lock (backlog)
-            {
-                while (backlog.Any() && backlog.First().StartTime <= DateTime.Now)
-                {
-                    Event ev = backlog.Dequeue();
-                    ev.Method();
-                }
-            }
-        }
-
-        private long lastFrame = -1;
-        private int fps;
-
-        private void paintTimer_Tick(object sender, EventArgs e)
-        {
-            long thisFrame = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-            long diff = thisFrame - lastFrame;
-            fps = (int)(1000.0 / diff);
-            lastFrame = thisFrame;
-            Refresh();
+            Program program = new Program();
+            program.Init();
         }
     }
 
@@ -248,4 +319,5 @@ namespace MIDITrailer
         public long Time { get; set; }
         public int Channel { get; set; }
     }
+
 }
