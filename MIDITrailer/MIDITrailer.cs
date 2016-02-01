@@ -20,11 +20,13 @@ using SlimDX.DirectWrite;
 using SlimDX.Windows;
 using Brush = SlimDX.Direct2D.Brush;
 using Device = SlimDX.Direct3D11.Device;
+using Factory = SlimDX.DirectWrite.Factory;
 using FactoryD2D = SlimDX.Direct2D.Factory;
 using FactoryDXGI = SlimDX.DXGI.Factory;
 using Font = System.Drawing.Font;
 using FontFamily = System.Drawing.FontFamily;
 using FontStyle = System.Drawing.FontStyle;
+using FontWeight = SlimDX.DirectWrite.FontWeight;
 using Format = SlimDX.DXGI.Format;
 using PresentFlags = SlimDX.DXGI.PresentFlags;
 using Surface = SlimDX.DXGI.Surface;
@@ -45,9 +47,9 @@ namespace MIDITrailer
         private readonly List<Note> notes = new List<Note>();
         private readonly Note[,] lastPlayed = new Note[16, 128];
 
-        private const int DELAY = 3;
+        private const int DELAY = 2;
 
-        private readonly Size SIZE = new Size(1024, 768);
+        private readonly Size SIZE = new Size(1600, 900);
         private readonly int[] keyPressed = new int[128];
 
         private Timer eventTimer;
@@ -57,9 +59,9 @@ namespace MIDITrailer
 
         public MIDITrailer()
         {
-            eventTimer = new Timer(5) {Enabled = true};
-            timer = new Timer(10) {Enabled = true};
-            eventTimer.Elapsed += delegate(object sender, ElapsedEventArgs args)
+            eventTimer = new Timer(5) { Enabled = true };
+            timer = new Timer(10) { Enabled = true };
+            eventTimer.Elapsed += delegate (object sender, ElapsedEventArgs args)
             {
                 lock (backlog)
                 {
@@ -70,9 +72,9 @@ namespace MIDITrailer
                     }
                 }
             };
-            timer.Elapsed += delegate(object sender, ElapsedEventArgs args)
+            timer.Elapsed += delegate (object sender, ElapsedEventArgs args)
             {
-                int keyboardY = (int) (renderTarget.Size.Height - KEY_HEIGHT);
+                int keyboardY = (int)(renderTarget.Size.Height - KEY_HEIGHT);
                 long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
                 float speed = 1.0f * (keyboardY) / (DELAY * 1000.0f);
                 lock (notes)
@@ -105,7 +107,7 @@ namespace MIDITrailer
                 Usage = Usage.RenderTargetOutput,
                 OutputHandle = form.Handle,
                 IsWindowed = true,
-                ModeDescription = new ModeDescription(0, 0, new Rational(60, 1), Format.R8G8B8A8_UNorm),
+                ModeDescription = new ModeDescription(SIZE.Width, SIZE.Height, new Rational(60, 1), Format.R8G8B8A8_UNorm),
                 SampleDescription = new SampleDescription(1, 0),
                 Flags = SwapChainFlags.AllowModeSwitch,
                 SwapEffect = SwapEffect.Discard,
@@ -134,6 +136,9 @@ namespace MIDITrailer
                 });
             }
 
+            // Freaking antialiasing lagging up my programs
+            renderTarget.AntialiasMode = AntialiasMode.Aliased;
+
             using (var factory = swapChain.GetParent<FactoryDXGI>())
                 factory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
 
@@ -144,7 +149,7 @@ namespace MIDITrailer
             };
             form.FormClosing += MIDITrailer_FormClosing;
 
-            form.Size = new Size((int) (SIZE.Width / (dpi.Width / 96f)), (int) (SIZE.Height / (dpi.Height / 96f)));
+            form.Size = new Size((int)(SIZE.Width / (dpi.Width / 96f)), (int)(SIZE.Height / (dpi.Height / 96f)));
             form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
 
             brushes = new Brush[colors.Length];
@@ -237,7 +242,7 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadAsync("D:/Music/midis/Necrofantasia.mid");
+            sequence.LoadAsync("D:/Music/midis/tetrisA2.mid");
         }
 
         const int KEY_HEIGHT = 40;
@@ -261,7 +266,7 @@ namespace MIDITrailer
             target.Clear(Color.Gray);
 
             int kw = (int)(target.Size.Width / 128.0f);
-            int keyboardY = (int) (target.Size.Height - KEY_HEIGHT);
+            int keyboardY = (int)(target.Size.Height - KEY_HEIGHT);
             lock (notes)
             {
                 foreach (Note n in notes)
@@ -275,17 +280,36 @@ namespace MIDITrailer
             target.FillRectangle(brushes[16], new RectangleF(0, keyboardY, target.Size.Width, KEY_HEIGHT));
             for (int i = 0; i < 128; i++)
             {
-                Rectangle rect = new Rectangle(i * kw, keyboardY, kw, KEY_HEIGHT);
-                if (isBlack[i % 12])
+                if (isBlack[i%12])
+                {
                     target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[17],
-                        new Rectangle(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
+                        new Rectangle(i*kw, keyboardY, kw, BLACK_KEY_HEIGHT));
+                }
                 else
+                {
                     if (keyPressed[i] > 0)
-                    target.FillRectangle(brushes[0], rect);
-                target.DrawRectangle(brushes[17], rect);
+                        target.FillRectangle(brushes[0], new Rectangle(i*kw, keyboardY, kw, KEY_HEIGHT));
+                }
             }
-            //for (int i = 0; i < debug.Length; i++)
-            //    target.DrawText(debug[i], new TextFormat(), );.DrawString(debug[i], debugFont, Brushes.Black, 10, 10 + 15 * i);
+            for (int i = 0; i < 128; i++)
+            {
+                target.DrawLine(brushes[17], i * kw, keyboardY, i * kw, target.Size.Height, 1f);
+            }
+            string[] debug = {"note_count: " + notes.Count};
+            TextFormat textFormat;
+            using (var factory = new Factory())
+            {
+                textFormat = new TextFormat(factory,
+                    "Consolas",
+                    FontWeight.Normal,
+                    SlimDX.DirectWrite.FontStyle.Normal,
+                    FontStretch.Normal,
+                    20,
+                    "en-us");
+            }
+            
+            for (int i = 0; i < debug.Length; i++)
+                target.DrawText(debug[i], textFormat, new Rectangle(10,10 + i * 15,400,0), brushes[17], DrawTextOptions.None, MeasuringMethod.Natural);
             target.EndDraw();
         }
 
