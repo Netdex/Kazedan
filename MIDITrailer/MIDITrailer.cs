@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
@@ -60,41 +61,7 @@ namespace MIDITrailer
 
         public MIDITrailer()
         {
-            eventTimer = new Timer(5) { Enabled = true };
-            timer = new Timer(10) { Enabled = true };
-            eventTimer.Elapsed += delegate (object sender, ElapsedEventArgs args)
-            {
-                lock (backlog)
-                {
-                    while (backlog.Any() && backlog.First().StartTime <= DateTime.Now)
-                    {
-                        Event ev = backlog.Dequeue();
-                        ev.Method();
-                    }
-                }
-            };
-            timer.Elapsed += delegate (object sender, ElapsedEventArgs args)
-            {
-                int keyboardY = (int)(renderTarget.Size.Height - KEY_HEIGHT);
-                long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-                float speed = 1.0f * (keyboardY) / (DELAY * 1000.0f);
-                lock (notes)
-                {
-                    for (int i = 0; i < notes.Count; i++)
-                    {
-                        Note n = notes[i];
-                        if (!n.Playing)
-                            n.Position = (now - n.Time) * speed - n.Length;
-                        else
-                            n.Length = (now - n.Time) * speed;
-                        if (n.Position > keyboardY)
-                        {
-                            notes.RemoveAt(i);
-                            i--;
-                        }
-                    }
-                }
-            };
+            
         }
 
         public void Init()
@@ -114,8 +81,6 @@ namespace MIDITrailer
                 SwapEffect = SwapEffect.Discard,
             };
 
-            // Create swap chain and Direct3D device
-            // The BgraSupport flag is needed for Direct2D compatibility otherwise RenderTarget.FromDXGI will fail!
             Device device;
             SwapChain swapChain;
             Device.CreateWithSwapChain(DriverType.Hardware, DeviceCreationFlags.BgraSupport, swapChainDesc, out device, out swapChain);
@@ -161,7 +126,7 @@ namespace MIDITrailer
                     new GradientStop()
                     { Color = new Color4(Color.White),Position = 0 },
                     new GradientStop()
-                    { Color = new Color4(Color.Gray), Position = 1 }
+                    { Color = new Color4(Color.DarkGray), Position = 1 }
                 }),
                 new LinearGradientBrushProperties()
                 {
@@ -173,7 +138,7 @@ namespace MIDITrailer
                     new GradientStop()
                     { Color = new Color4(Color.DimGray), Position = 0 },
                     new GradientStop()
-                    { Color = new Color4(Color.DarkSlateGray), Position = 1 }
+                    { Color = new Color4(Color.DarkGray), Position = 1 }
                 }),
                 new LinearGradientBrushProperties()
                 {
@@ -182,12 +147,50 @@ namespace MIDITrailer
                 });
             using (var factory = new Factory())
                 debugFormat = new TextFormat(factory, "Consolas", FontWeight.Normal, SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 18, "en-us");
+
+            #region init_timers
+            eventTimer = new Timer(5) { Enabled = true };
+            timer = new Timer(5) { Enabled = true };
+            eventTimer.Elapsed += delegate (object sender, ElapsedEventArgs args)
+            {
+                lock (backlog)
+                {
+                    while (backlog.Any() && backlog.First().StartTime <= DateTime.Now)
+                    {
+                        Event ev = backlog.Dequeue();
+                        ev.Method();
+                    }
+                }
+            };
+            timer.Elapsed += delegate (object sender, ElapsedEventArgs args)
+            {
+                int keyboardY = (int)(renderTarget.Size.Height - KEY_HEIGHT);
+                long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+                float speed = 1.0f * (keyboardY) / (DELAY * 1000.0f);
+                lock (notes)
+                {
+                    for (int i = 0; i < notes.Count; i++)
+                    {
+                        Note n = notes[i];
+                        if (!n.Playing)
+                            n.Position = (now - n.Time) * speed - n.Length;
+                        else
+                            n.Length = (now - n.Time) * speed;
+                        if (n.Position > keyboardY)
+                        {
+                            notes.RemoveAt(i);
+                            i--;
+                        }
+                    }
+                }
+            };
+            #endregion
+
             Load();
             MessagePump.Run(form, () =>
             {
                 Paint(renderTarget);
-                swapChain.Present(0, PresentFlags.None);
-                Thread.Sleep(10);
+                swapChain.Present(1, PresentFlags.None);
             });
 
             renderTarget.Dispose();
@@ -229,6 +232,8 @@ namespace MIDITrailer
                     };
                     lock (notes)
                         notes.Add(n);
+                    if (lastPlayed[channel, key] != null)
+                        lastPlayed[channel, key].Playing = false;
                     lastPlayed[channel, key] = n;
                 }
                 lock (backlog)
@@ -267,7 +272,7 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadAsync("D:/Music/midis/th07_07.mid");
+            sequence.LoadAsync("D:/Music/midis/Bad Apple!! feat. nomico(S)_MSGS.mid");
         }
 
         const int KEY_HEIGHT = 40;
@@ -278,7 +283,9 @@ namespace MIDITrailer
             Color.Green, Color.Blue, Color.Indigo,
             Color.Violet, Color.Pink, Color.OrangeRed,
             Color.GreenYellow, Color.Lime, Color.Cyan,
-            Color.Purple, Color.DarkViolet, Color.Bisque, Color.Brown, Color.White, Color.Black };
+            Color.Purple, Color.DarkViolet, Color.Bisque,
+            Color.Brown, Color.White, Color.Black,
+            Color.FromArgb(30, 30, 30), Color.IndianRed};
 
         private static Brush[] brushes;
         private LinearGradientBrush keyboardGradient;
@@ -308,18 +315,30 @@ namespace MIDITrailer
             for (int i = 0; i < 128; i++)
             {
                 if (isBlack[i % 12])
-                    target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[17], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
+                {
+                    target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[18], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
+                    if (keyPressed[i] == 0)
+                    {
+                        target.FillRectangle(brushes[18], new RectangleF(i*kw, keyboardY + 35, kw, KEY_HEIGHT - 35));
+                        target.FillRectangle(brushes[17], new RectangleF(i * kw, keyboardY + BLACK_KEY_HEIGHT * 4 / 5, kw, BLACK_KEY_HEIGHT / 5));
+                    }
+                }
                 else
                 {
                     if (keyPressed[i] > 0)
-                        target.FillRectangle(brushes[0], new RectangleF(i * kw, keyboardY, kw, KEY_HEIGHT));
+                    {
+                        target.FillRectangle(brushes[19], new RectangleF(i*kw, keyboardY, kw, KEY_HEIGHT));
+                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY, kw / 6, KEY_HEIGHT));
+                    }
+                    else
+                        target.FillRectangle(brushes[18], new RectangleF(i*kw, keyboardY + KEY_HEIGHT * 7 / 8, kw, KEY_HEIGHT / 8));
                 }
                 target.DrawLine(brushes[17], i * kw, keyboardY, i * kw, target.Size.Height, 1f);
             }
 
             string[] debug =
             {
-                "note_count: " + notes.Count
+                "note_count: " + notes.Count,
             };
 
             for (int i = 0; i < debug.Length; i++)
