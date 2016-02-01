@@ -156,21 +156,32 @@ namespace MIDITrailer
             brushes = new Brush[colors.Length];
             for (int i = 0; i < colors.Length; i++)
                 brushes[i] = new SolidColorBrush(renderTarget, new Color4(colors[i]));
-            gradientBrush = new LinearGradientBrush(renderTarget,
-                new GradientStopCollection(renderTarget, new[] { new GradientStop()
-                {
-                    Color = new Color4(Color.White),
-                    Position = 0
-                }, new GradientStop()
-                {
-                    Color = new Color4(Color.Gray),
-                    Position = 1
-                } }),
+            keyboardGradient = new LinearGradientBrush(renderTarget,
+                new GradientStopCollection(renderTarget, new[] {
+                    new GradientStop()
+                    { Color = new Color4(Color.White),Position = 0 },
+                    new GradientStop()
+                    { Color = new Color4(Color.Gray), Position = 1 }
+                }),
                 new LinearGradientBrushProperties()
                 {
-                    EndPoint = new PointF(0, renderTarget.Size.Height - KEY_HEIGHT),
-                    StartPoint = new PointF(0, renderTarget.Size.Height)
+                    StartPoint = new PointF(0, renderTarget.Size.Height),
+                    EndPoint = new PointF(0, renderTarget.Size.Height - KEY_HEIGHT)
                 });
+            backgroundGradient = new LinearGradientBrush(renderTarget,
+                new GradientStopCollection(renderTarget, new[] {
+                    new GradientStop()
+                    { Color = new Color4(Color.DimGray), Position = 0 },
+                    new GradientStop()
+                    { Color = new Color4(Color.DarkSlateGray), Position = 1 }
+                }),
+                new LinearGradientBrushProperties()
+                {
+                    StartPoint = new PointF(0, renderTarget.Size.Height),
+                    EndPoint = new PointF(0, 0)
+                });
+            using (var factory = new Factory())
+                debugFormat = new TextFormat(factory, "Consolas", FontWeight.Normal, SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 18, "en-us");
             Load();
             MessagePump.Run(form, () =>
             {
@@ -256,7 +267,7 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadAsync("D:/Music/midis/aliceinwonderland2.mid");
+            sequence.LoadAsync("D:/Music/midis/th07_07.mid");
         }
 
         const int KEY_HEIGHT = 40;
@@ -270,59 +281,49 @@ namespace MIDITrailer
             Color.Purple, Color.DarkViolet, Color.Bisque, Color.Brown, Color.White, Color.Black };
 
         private static Brush[] brushes;
-        private LinearGradientBrush gradientBrush;
+        private LinearGradientBrush keyboardGradient;
+        private LinearGradientBrush backgroundGradient;
+        private TextFormat debugFormat;
 
         public void Paint(RenderTarget target)
         {
             target.BeginDraw();
             target.Transform = Matrix3x2.Identity;
-            target.Clear(Color.Gray);
+            target.FillRectangle(backgroundGradient, new RectangleF(PointF.Empty, target.Size));
 
-            int kw = (int)(target.Size.Width / 128.0f);
-            int keyboardY = (int)(target.Size.Height - KEY_HEIGHT);
+            float kw = target.Size.Width / 128.0f;
+            float keyboardY = target.Size.Height - KEY_HEIGHT;
             lock (notes)
             {
                 foreach (Note n in notes)
                 {
-                    Rectangle rect = new Rectangle(n.Key * kw, (int)n.Position, kw, (int)n.Length);
+                    RectangleF rect = new RectangleF(n.Key * kw, n.Position, kw, n.Length);
                     target.FillRectangle(brushes[n.Channel], rect);
-                    target.DrawRectangle(brushes[17], rect);
+                    target.DrawRectangle(brushes[17], rect, .8f);
                 }
             }
 
-            target.FillRectangle(gradientBrush, new RectangleF(0, keyboardY, target.Size.Width, KEY_HEIGHT));
+            target.FillRectangle(keyboardGradient, new RectangleF(0, keyboardY, target.Size.Width, KEY_HEIGHT));
             target.DrawLine(brushes[17], 0, keyboardY, target.Size.Width, keyboardY, 1f);
-
             for (int i = 0; i < 128; i++)
             {
                 if (isBlack[i % 12])
-                {
-                    target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[17],
-                        new Rectangle(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
-                }
+                    target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[17], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
                 else
                 {
                     if (keyPressed[i] > 0)
-                        target.FillRectangle(brushes[0], new Rectangle(i * kw, keyboardY, kw, KEY_HEIGHT));
+                        target.FillRectangle(brushes[0], new RectangleF(i * kw, keyboardY, kw, KEY_HEIGHT));
                 }
                 target.DrawLine(brushes[17], i * kw, keyboardY, i * kw, target.Size.Height, 1f);
             }
 
-            string[] debug = { "note_count: " + notes.Count };
-            TextFormat textFormat;
-            using (var factory = new Factory())
+            string[] debug =
             {
-                textFormat = new TextFormat(factory,
-                    "Consolas",
-                    FontWeight.Normal,
-                    SlimDX.DirectWrite.FontStyle.Normal,
-                    FontStretch.Normal,
-                    20,
-                    "en-us");
-            }
+                "note_count: " + notes.Count
+            };
 
             for (int i = 0; i < debug.Length; i++)
-                target.DrawText(debug[i], textFormat, new Rectangle(10, 10 + i * 15, 400, 0), brushes[17], DrawTextOptions.None, MeasuringMethod.Natural);
+                target.DrawText(debug[i], debugFormat, new Rectangle(10, 10 + i * 15, 400, 0), brushes[17], DrawTextOptions.None, MeasuringMethod.Natural);
             target.EndDraw();
         }
 
