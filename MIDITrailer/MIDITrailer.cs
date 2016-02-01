@@ -28,6 +28,7 @@ using FontFamily = System.Drawing.FontFamily;
 using FontStyle = System.Drawing.FontStyle;
 using FontWeight = SlimDX.DirectWrite.FontWeight;
 using Format = SlimDX.DXGI.Format;
+using LinearGradientBrush = SlimDX.Direct2D.LinearGradientBrush;
 using PresentFlags = SlimDX.DXGI.PresentFlags;
 using Surface = SlimDX.DXGI.Surface;
 using SwapChain = SlimDX.DXGI.SwapChain;
@@ -155,6 +156,21 @@ namespace MIDITrailer
             brushes = new Brush[colors.Length];
             for (int i = 0; i < colors.Length; i++)
                 brushes[i] = new SolidColorBrush(renderTarget, new Color4(colors[i]));
+            gradientBrush = new LinearGradientBrush(renderTarget,
+                new GradientStopCollection(renderTarget, new[] { new GradientStop()
+                {
+                    Color = new Color4(Color.White),
+                    Position = 0
+                }, new GradientStop()
+                {
+                    Color = new Color4(Color.Gray),
+                    Position = 1
+                } }),
+                new LinearGradientBrushProperties()
+                {
+                    EndPoint = new PointF(0, renderTarget.Size.Height - KEY_HEIGHT),
+                    StartPoint = new PointF(0, renderTarget.Size.Height)
+                });
             Load();
             MessagePump.Run(form, () =>
             {
@@ -186,9 +202,6 @@ namespace MIDITrailer
                     {
                         Note n = lastPlayed[channel, key];
                         n.Playing = false;
-                        if (n.Length == 0)
-                            lock (notes)
-                                notes.Remove(n);
                     }
                 }
                 else if (cmd == ChannelCommand.NoteOn)
@@ -204,9 +217,7 @@ namespace MIDITrailer
                         Velocity = vel
                     };
                     lock (notes)
-                    {
                         notes.Add(n);
-                    }
                     lastPlayed[channel, key] = n;
                 }
                 lock (backlog)
@@ -215,7 +226,10 @@ namespace MIDITrailer
                     {
                         outDevice.Send(args.Message);
                         if (cmd == ChannelCommand.NoteOff || vel == 0)
-                            keyPressed[key]--;
+                        {
+                            if (keyPressed[key] > 0)
+                                keyPressed[key]--;
+                        }
                         else if (cmd == ChannelCommand.NoteOn)
                             keyPressed[key]++;
                     }, DELAY));
@@ -242,7 +256,7 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadAsync("D:/Music/midis/tetrisA2.mid");
+            sequence.LoadAsync("D:/Music/midis/aliceinwonderland2.mid");
         }
 
         const int KEY_HEIGHT = 40;
@@ -256,8 +270,7 @@ namespace MIDITrailer
             Color.Purple, Color.DarkViolet, Color.Bisque, Color.Brown, Color.White, Color.Black };
 
         private static Brush[] brushes;
-
-        private readonly Font debugFont = new Font(FontFamily.GenericMonospace, 10, FontStyle.Bold);
+        private LinearGradientBrush gradientBrush;
 
         public void Paint(RenderTarget target)
         {
@@ -277,25 +290,25 @@ namespace MIDITrailer
                 }
             }
 
-            target.FillRectangle(brushes[16], new RectangleF(0, keyboardY, target.Size.Width, KEY_HEIGHT));
+            target.FillRectangle(gradientBrush, new RectangleF(0, keyboardY, target.Size.Width, KEY_HEIGHT));
+            target.DrawLine(brushes[17], 0, keyboardY, target.Size.Width, keyboardY, 1f);
+
             for (int i = 0; i < 128; i++)
             {
-                if (isBlack[i%12])
+                if (isBlack[i % 12])
                 {
                     target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[17],
-                        new Rectangle(i*kw, keyboardY, kw, BLACK_KEY_HEIGHT));
+                        new Rectangle(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
                 }
                 else
                 {
                     if (keyPressed[i] > 0)
-                        target.FillRectangle(brushes[0], new Rectangle(i*kw, keyboardY, kw, KEY_HEIGHT));
+                        target.FillRectangle(brushes[0], new Rectangle(i * kw, keyboardY, kw, KEY_HEIGHT));
                 }
-            }
-            for (int i = 0; i < 128; i++)
-            {
                 target.DrawLine(brushes[17], i * kw, keyboardY, i * kw, target.Size.Height, 1f);
             }
-            string[] debug = {"note_count: " + notes.Count};
+
+            string[] debug = { "note_count: " + notes.Count };
             TextFormat textFormat;
             using (var factory = new Factory())
             {
@@ -307,9 +320,9 @@ namespace MIDITrailer
                     20,
                     "en-us");
             }
-            
+
             for (int i = 0; i < debug.Length; i++)
-                target.DrawText(debug[i], textFormat, new Rectangle(10,10 + i * 15,400,0), brushes[17], DrawTextOptions.None, MeasuringMethod.Natural);
+                target.DrawText(debug[i], textFormat, new Rectangle(10, 10 + i * 15, 400, 0), brushes[17], DrawTextOptions.None, MeasuringMethod.Natural);
             target.EndDraw();
         }
 
