@@ -50,19 +50,23 @@ namespace MIDITrailer
         private readonly List<Note> notes = new List<Note>();
         private readonly Note[,] lastPlayed = new Note[16, 128];
 
-        private const int DELAY = 2000;
+        private const int DELAY = 900;
 
         private readonly Size SIZE = new Size(1600, 900);
         private readonly int[] keyPressed = new int[128];
+        private readonly int[] channelVolume = new int[16];
 
         private Timer eventTimer;
         private Timer timer;
 
         private RenderTarget renderTarget;
+        private bool Fancy = true;
+        private const string MIDIFile = @"D:\Music\midis\lastremote.mid";
 
         public MIDITrailer()
         {
-
+            for (int i = 0; i < 16; i++)
+                channelVolume[i] = 127;
         }
 
         public void Init()
@@ -104,7 +108,8 @@ namespace MIDITrailer
             }
 
             // Freaking antialiasing lagging up my programs
-            renderTarget.AntialiasMode = AntialiasMode.Aliased;
+            if (!Fancy)
+                renderTarget.AntialiasMode = AntialiasMode.Aliased;
 
             using (var factory = swapChain.GetParent<FactoryDXGI>())
                 factory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
@@ -209,13 +214,13 @@ namespace MIDITrailer
             {
                 ChannelCommand cmd = args.Message.Command;
                 int channel = args.Message.MidiChannel;
-                int key = args.Message.Data1;
-                int vel = args.Message.Data2;
-                if (cmd == ChannelCommand.NoteOff || vel == 0)
+                int data1 = args.Message.Data1;
+                int data2 = args.Message.Data2;
+                if (cmd == ChannelCommand.NoteOff || data2 == 0)
                 {
-                    if (lastPlayed[channel, key] != null)
+                    if (lastPlayed[channel, data1] != null)
                     {
-                        Note n = lastPlayed[channel, key];
+                        Note n = lastPlayed[channel, data1];
                         n.Playing = false;
                     }
                 }
@@ -223,19 +228,26 @@ namespace MIDITrailer
                 {
                     Note n = new Note()
                     {
-                        Key = key,
+                        Key = data1,
                         Length = 0,
                         Playing = true,
                         Position = 0,
                         Time = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond,
                         Channel = channel,
-                        Velocity = vel
+                        Velocity = data2
                     };
                     lock (notes)
                         notes.Add(n);
-                    if (lastPlayed[channel, key] != null)
-                        lastPlayed[channel, key].Playing = false;
-                    lastPlayed[channel, key] = n;
+                    if (lastPlayed[channel, data1] != null)
+                        lastPlayed[channel, data1].Playing = false;
+                    lastPlayed[channel, data1] = n;
+                }
+                else if (cmd == ChannelCommand.Controller)
+                {
+                    if (data1 == 0x07)
+                    {
+                        channelVolume[channel] = data2;
+                    }
                 }
 
                 lock (backlog)
@@ -243,13 +255,13 @@ namespace MIDITrailer
                     backlog.Enqueue(new Event(delegate
                     {
                         outDevice.Send(args.Message);
-                        if (cmd == ChannelCommand.NoteOff || vel == 0)
+                        if (cmd == ChannelCommand.NoteOff || data2 == 0)
                         {
-                            if (keyPressed[key] > 0)
-                                keyPressed[key]--;
+                            if (keyPressed[data1] > 0)
+                                keyPressed[data1]--;
                         }
                         else if (cmd == ChannelCommand.NoteOn)
-                            keyPressed[key]++;
+                            keyPressed[data1]++;
                     }, DELAY));
                 }
             };
@@ -275,7 +287,7 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadAsync("D:/Music/midis/Unforgettable the Nostalgic Greenery.mid");
+            sequence.LoadAsync(MIDIFile);
         }
 
         const int KEY_HEIGHT = 40;
@@ -308,8 +320,19 @@ namespace MIDITrailer
                 foreach (Note n in notes)
                 {
                     RectangleF rect = new RectangleF(n.Key * kw, n.Position, kw, n.Length);
-                    target.FillRectangle(brushes[n.Channel], rect);
-                    target.DrawRectangle(brushes[17], rect, .8f);
+                    if (Fancy)
+                    {
+                        float alpha = n.Velocity / 127f * (channelVolume[n.Channel] / 127f);
+                        using (var brush = new SolidColorBrush(target, new Color4(colors[n.Channel]) { Alpha = alpha }))
+                            target.FillRectangle(brush, rect);
+                        using (var brush = new SolidColorBrush(target, new Color4(ControlPaint.Dark(colors[n.Channel])) { Alpha = alpha }))
+                            target.DrawRectangle(brush, rect, 3f);
+                    }
+                    else
+                    {
+                        target.FillRectangle(brushes[n.Channel], rect);
+                        target.DrawRectangle(brushes[17], rect, 1f);
+                    }
                 }
             }
 
@@ -320,7 +343,7 @@ namespace MIDITrailer
                 if (isBlack[i % 12])
                 {
                     target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[18], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
-                    if(keyPressed[i] == 0)
+                    if (keyPressed[i] == 0)
                         target.FillRectangle(brushes[17], new RectangleF(i * kw, keyboardY + BLACK_KEY_HEIGHT * 4f / 5, kw, BLACK_KEY_HEIGHT / 5f));
                 }
                 else
