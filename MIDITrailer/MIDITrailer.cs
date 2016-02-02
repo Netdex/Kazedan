@@ -36,6 +36,7 @@ using SwapChain = SlimDX.DXGI.SwapChain;
 using SwapEffect = SlimDX.DXGI.SwapEffect;
 using Timer = System.Timers.Timer;
 using Usage = SlimDX.DXGI.Usage;
+// ReSharper disable AccessToDisposedClosure
 
 namespace MIDITrailer
 {
@@ -49,7 +50,7 @@ namespace MIDITrailer
         private readonly List<Note> notes = new List<Note>();
         private readonly Note[,] lastPlayed = new Note[16, 128];
 
-        private const int DELAY = 2;
+        private const int DELAY = 2000;
 
         private readonly Size SIZE = new Size(1600, 900);
         private readonly int[] keyPressed = new int[128];
@@ -61,7 +62,7 @@ namespace MIDITrailer
 
         public MIDITrailer()
         {
-            
+
         }
 
         public void Init()
@@ -151,7 +152,7 @@ namespace MIDITrailer
             #region init_timers
             eventTimer = new Timer(5) { Enabled = true };
             timer = new Timer(5) { Enabled = true };
-            eventTimer.Elapsed += delegate (object sender, ElapsedEventArgs args)
+            eventTimer.Elapsed += delegate
             {
                 lock (backlog)
                 {
@@ -162,11 +163,11 @@ namespace MIDITrailer
                     }
                 }
             };
-            timer.Elapsed += delegate (object sender, ElapsedEventArgs args)
+            timer.Elapsed += delegate
             {
                 int keyboardY = (int)(renderTarget.Size.Height - KEY_HEIGHT);
                 long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-                float speed = 1.0f * (keyboardY) / (DELAY * 1000.0f);
+                float speed = 1.0f * keyboardY / DELAY;
                 lock (notes)
                 {
                     for (int i = 0; i < notes.Count; i++)
@@ -236,6 +237,7 @@ namespace MIDITrailer
                         lastPlayed[channel, key].Playing = false;
                     lastPlayed[channel, key] = n;
                 }
+
                 lock (backlog)
                 {
                     backlog.Enqueue(new Event(delegate
@@ -253,7 +255,8 @@ namespace MIDITrailer
             };
             sequencer.SysExMessagePlayed += delegate (object o, SysExMessageEventArgs args)
             {
-                outDevice.Send(args.Message);
+                lock (backlog)
+                    backlog.Enqueue(new Event(() => outDevice.Send(args.Message), DELAY));
             };
             sequencer.Chased += delegate (object o, ChasedEventArgs args)
             {
@@ -272,20 +275,20 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadAsync("D:/Music/midis/Bad Apple!! feat. nomico(S)_MSGS.mid");
+            sequence.LoadAsync("D:/Music/midis/Unforgettable the Nostalgic Greenery.mid");
         }
 
         const int KEY_HEIGHT = 40;
         const int BLACK_KEY_HEIGHT = 20;
         readonly bool[] isBlack = { false, true, false, true, false, false, true, false, true, false, true, false };
         private static readonly Color[] colors = {
-            Color.Red, Color.Orange, Color.Yellow,
-            Color.Green, Color.Blue, Color.Indigo,
-            Color.Violet, Color.Pink, Color.OrangeRed,
-            Color.GreenYellow, Color.Lime, Color.Cyan,
-            Color.Purple, Color.DarkViolet, Color.Bisque,
-            Color.Brown, Color.White, Color.Black,
-            Color.FromArgb(30, 30, 30), Color.IndianRed};
+            Color.Red,          Color.Orange,       Color.Yellow,
+            Color.Green,        Color.Blue,         Color.Indigo,
+            Color.Violet,       Color.Pink,         Color.OrangeRed,
+            Color.GreenYellow,  Color.Lime,         Color.Cyan,
+            Color.Purple,       Color.DarkViolet,   Color.Bisque,
+            Color.Brown,        Color.White,        Color.Black,
+            Color.FromArgb(30, 30, 30),             Color.IndianRed};
 
         private static Brush[] brushes;
         private LinearGradientBrush keyboardGradient;
@@ -319,19 +322,18 @@ namespace MIDITrailer
                     target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[18], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
                     if (keyPressed[i] == 0)
                     {
-                        target.FillRectangle(brushes[18], new RectangleF(i*kw, keyboardY + 35, kw, KEY_HEIGHT - 35));
-                        target.FillRectangle(brushes[17], new RectangleF(i * kw, keyboardY + BLACK_KEY_HEIGHT * 4 / 5, kw, BLACK_KEY_HEIGHT / 5));
+                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY + 35, kw, KEY_HEIGHT - 35));
                     }
                 }
                 else
                 {
                     if (keyPressed[i] > 0)
                     {
-                        target.FillRectangle(brushes[19], new RectangleF(i*kw, keyboardY, kw, KEY_HEIGHT));
+                        target.FillRectangle(brushes[19], new RectangleF(i * kw, keyboardY, kw, KEY_HEIGHT));
                         target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY, kw / 6, KEY_HEIGHT));
                     }
                     else
-                        target.FillRectangle(brushes[18], new RectangleF(i*kw, keyboardY + KEY_HEIGHT * 7 / 8, kw, KEY_HEIGHT / 8));
+                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY + KEY_HEIGHT * 7 / 8, kw, KEY_HEIGHT / 8));
                 }
                 target.DrawLine(brushes[17], i * kw, keyboardY, i * kw, target.Size.Height, 1f);
             }
@@ -370,7 +372,7 @@ namespace MIDITrailer
         public Event(Action method, int delay)
         {
             Method = method;
-            StartTime = DateTime.Now + TimeSpan.FromSeconds(delay);
+            StartTime = DateTime.Now + TimeSpan.FromMilliseconds(delay);
         }
     }
 
