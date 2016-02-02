@@ -53,9 +53,9 @@ namespace MIDITrailer
         private readonly Size SIZE = new Size(1600, 900);
         private Timer eventTimer;
         private bool Fancy = true;
-        private const int DELAY = 900;
+        private const int DELAY = 1000;
 
-        private const string MIDIFile = @"D:\Music\midis\final countdown.mid";
+        private const string MIDIFile = @"D:\Music\midis\eien no miko.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -305,7 +305,7 @@ namespace MIDITrailer
                 foreach (Note n in notes)
                 {
                     float wheelOffset = (pitchwheel[n.Channel] - 8192) / 8192f * 2 * kw;
-                    RectangleF rect = new RectangleF(n.Key * kw + wheelOffset, n.Position, kw, n.Length);
+                    RectangleF rect = new RectangleF(n.Key * kw + (n.Position + n.Length >= keyboardY ? wheelOffset : 0), n.Position, kw, n.Length);
                     if (Fancy)
                     {
                         float alpha = n.Velocity / 127f * (channelVolume[n.Channel] / 127f);
