@@ -320,22 +320,32 @@ namespace MIDITrailer
                 if (isBlack[i % 12])
                 {
                     target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[18], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
-                    if (keyPressed[i] == 0)
-                    {
-                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY + 35, kw, KEY_HEIGHT - 35));
-                    }
+                    if(keyPressed[i] == 0)
+                        target.FillRectangle(brushes[17], new RectangleF(i * kw, keyboardY + BLACK_KEY_HEIGHT * 4f / 5, kw, BLACK_KEY_HEIGHT / 5f));
                 }
                 else
                 {
                     if (keyPressed[i] > 0)
                     {
                         target.FillRectangle(brushes[19], new RectangleF(i * kw, keyboardY, kw, KEY_HEIGHT));
-                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY, kw / 6, KEY_HEIGHT));
+                        if (isBlack[(i + 1) % 12])
+                            target.FillRectangle(brushes[19], new RectangleF(i * kw + kw, keyboardY + BLACK_KEY_HEIGHT, kw / 2, KEY_HEIGHT - BLACK_KEY_HEIGHT));
+                        if (isBlack[(i + 11) % 12])
+                            target.FillRectangle(brushes[19], new RectangleF(i * kw - kw / 2, keyboardY + BLACK_KEY_HEIGHT, kw / 2, KEY_HEIGHT - BLACK_KEY_HEIGHT));
                     }
                     else
-                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY + KEY_HEIGHT * 7 / 8, kw, KEY_HEIGHT / 8));
+                    {
+                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY + KEY_HEIGHT * 7f / 8, kw, KEY_HEIGHT / 8f));
+                        if (isBlack[(i + 1) % 12])
+                            target.FillRectangle(brushes[18], new RectangleF(i * kw + kw, keyboardY + KEY_HEIGHT * 7f / 8, kw, KEY_HEIGHT / 8f));
+                        if (isBlack[(i + 11) % 12])
+                            target.FillRectangle(brushes[18], new RectangleF(i * kw - kw / 2, keyboardY + KEY_HEIGHT * 7f / 8, kw, KEY_HEIGHT / 8f));
+                    }
                 }
-                target.DrawLine(brushes[17], i * kw, keyboardY, i * kw, target.Size.Height, 1f);
+                if (isBlack[i % 12])
+                    target.DrawLine(brushes[17], i * kw + kw / 2, keyboardY + BLACK_KEY_HEIGHT, i * kw + kw / 2, target.Size.Height, 1f);
+                else if (!isBlack[(i + 11) % 12])
+                    target.DrawLine(brushes[17], i * kw, keyboardY, i * kw, target.Size.Height, 1f);
             }
 
             string[] debug =
