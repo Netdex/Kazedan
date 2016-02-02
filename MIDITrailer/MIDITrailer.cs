@@ -42,35 +42,36 @@ namespace MIDITrailer
 {
     class MIDITrailer
     {
+        private readonly Queue<Event> backlog = new Queue<Event>();
+        private readonly List<Note> notes = new List<Note>();
+        private readonly Note[,] lastPlayed = new Note[16, 128];
+        private readonly int[] keyPressed = new int[128];
+        private readonly int[] channelVolume = new int[16];
+        private readonly int[] pitchwheel = new int[16];
+
+        private RenderTarget renderTarget;
+        private readonly Size SIZE = new Size(1600, 900);
+        private Timer eventTimer;
+        private bool Fancy = true;
+        private const int DELAY = 900;
+
+        private const string MIDIFile = @"D:\Music\midis\final countdown.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
 
-        private readonly Queue<Event> backlog = new Queue<Event>();
-        private readonly List<Note> notes = new List<Note>();
-        private readonly Note[,] lastPlayed = new Note[16, 128];
-
-        private const int DELAY = 900;
-
-        private readonly Size SIZE = new Size(1600, 900);
-        private readonly int[] keyPressed = new int[128];
-        private readonly int[] channelVolume = new int[16];
-
-        private Timer eventTimer;
-        private Timer timer;
-
-        private RenderTarget renderTarget;
-        private bool Fancy = true;
-        private const string MIDIFile = @"D:\Music\midis\lastremote.mid";
-
         public MIDITrailer()
         {
             for (int i = 0; i < 16; i++)
+            {
                 channelVolume[i] = 127;
+                pitchwheel[i] = 0x2000;
+            }
         }
 
         public void Init()
         {
+            #region init_gfx
             var form = new RenderForm("MIDITrailer");
 
             // Create swap chain description
@@ -153,10 +154,10 @@ namespace MIDITrailer
                 });
             using (var factory = new Factory())
                 debugFormat = new TextFormat(factory, "Consolas", FontWeight.Normal, SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 18, "en-us");
+            #endregion
 
             #region init_timers
             eventTimer = new Timer(5) { Enabled = true };
-            timer = new Timer(5) { Enabled = true };
             eventTimer.Elapsed += delegate
             {
                 lock (backlog)
@@ -168,33 +169,12 @@ namespace MIDITrailer
                     }
                 }
             };
-            timer.Elapsed += delegate
-            {
-                int keyboardY = (int)(renderTarget.Size.Height - KEY_HEIGHT);
-                long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-                float speed = 1.0f * keyboardY / DELAY;
-                lock (notes)
-                {
-                    for (int i = 0; i < notes.Count; i++)
-                    {
-                        Note n = notes[i];
-                        if (!n.Playing)
-                            n.Position = (now - n.Time) * speed - n.Length;
-                        else
-                            n.Length = (now - n.Time) * speed;
-                        if (n.Position > keyboardY)
-                        {
-                            notes.RemoveAt(i);
-                            i--;
-                        }
-                    }
-                }
-            };
             #endregion
 
             Load();
             MessagePump.Run(form, () =>
             {
+                UpdateNotePositions();
                 Paint(renderTarget);
                 swapChain.Present(1, PresentFlags.None);
             });
@@ -242,13 +222,6 @@ namespace MIDITrailer
                         lastPlayed[channel, data1].Playing = false;
                     lastPlayed[channel, data1] = n;
                 }
-                else if (cmd == ChannelCommand.Controller)
-                {
-                    if (data1 == 0x07)
-                    {
-                        channelVolume[channel] = data2;
-                    }
-                }
 
                 lock (backlog)
                 {
@@ -262,6 +235,18 @@ namespace MIDITrailer
                         }
                         else if (cmd == ChannelCommand.NoteOn)
                             keyPressed[data1]++;
+                        else if (cmd == ChannelCommand.Controller)
+                        {
+                            if (data1 == 0x07)
+                            {
+                                channelVolume[channel] = data2;
+                            }
+                        }
+                        else if (cmd == ChannelCommand.PitchWheel)
+                        {
+                            int pitchValue = Get14BitValue(data1, data2);
+                            pitchwheel[channel] = pitchValue;
+                        }
                     }, DELAY));
                 }
             };
@@ -319,7 +304,8 @@ namespace MIDITrailer
             {
                 foreach (Note n in notes)
                 {
-                    RectangleF rect = new RectangleF(n.Key * kw, n.Position, kw, n.Length);
+                    float wheelOffset = (pitchwheel[n.Channel] - 8192) / 8192f * 2 * kw;
+                    RectangleF rect = new RectangleF(n.Key * kw + wheelOffset, n.Position, kw, n.Length);
                     if (Fancy)
                     {
                         float alpha = n.Velocity / 127f * (channelVolume[n.Channel] / 127f);
@@ -342,9 +328,15 @@ namespace MIDITrailer
             {
                 if (isBlack[i % 12])
                 {
-                    target.FillRectangle(keyPressed[i] > 0 ? brushes[0] : brushes[18], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
-                    if (keyPressed[i] == 0)
+                    if (keyPressed[i] > 0)
+                    {
+                        target.FillRectangle(brushes[0], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
+                    }
+                    else
+                    {
+                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
                         target.FillRectangle(brushes[17], new RectangleF(i * kw, keyboardY + BLACK_KEY_HEIGHT * 4f / 5, kw, BLACK_KEY_HEIGHT / 5f));
+                    }
                 }
                 else
                 {
@@ -379,6 +371,34 @@ namespace MIDITrailer
             for (int i = 0; i < debug.Length; i++)
                 target.DrawText(debug[i], debugFormat, new Rectangle(10, 10 + i * 15, 400, 0), brushes[17], DrawTextOptions.None, MeasuringMethod.Natural);
             target.EndDraw();
+        }
+
+        public void UpdateNotePositions()
+        {
+            int keyboardY = (int)(renderTarget.Size.Height - KEY_HEIGHT);
+            long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+            float speed = 1.0f * keyboardY / DELAY;
+            lock (notes)
+            {
+                for (int i = 0; i < notes.Count; i++)
+                {
+                    Note n = notes[i];
+                    if (!n.Playing)
+                        n.Position = (now - n.Time) * speed - n.Length;
+                    else
+                        n.Length = (now - n.Time) * speed;
+                    if (n.Position > keyboardY)
+                    {
+                        notes.RemoveAt(i);
+                        i--;
+                    }
+                }
+            }
+        }
+
+        public static int Get14BitValue(int nLowerPart, int nHigherPart)
+        {
+            return (nLowerPart & 0x7F) | ((nHigherPart & 0x7F) << 7);
         }
 
         private void MIDITrailer_FormClosing(object sender, FormClosingEventArgs e)
