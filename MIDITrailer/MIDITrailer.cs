@@ -36,8 +36,8 @@ using SwapChain = SlimDX.DXGI.SwapChain;
 using SwapEffect = SlimDX.DXGI.SwapEffect;
 using Timer = System.Timers.Timer;
 using Usage = SlimDX.DXGI.Usage;
-// ReSharper disable AccessToDisposedClosure
 
+// ReSharper disable AccessToDisposedClosure
 namespace MIDITrailer
 {
     class MIDITrailer
@@ -54,8 +54,9 @@ namespace MIDITrailer
         private Timer eventTimer;
         private bool Fancy = true;
         private const int DELAY = 1000;
+        private bool Loading = false;
 
-        private const string MIDIFile = @"D:\Music\midis\eien no miko.mid";
+        private const string MIDIFile = @"D:\Music\midis\mhwgo.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -109,25 +110,25 @@ namespace MIDITrailer
             }
 
             // Freaking antialiasing lagging up my programs
-            if (!Fancy)
-                renderTarget.AntialiasMode = AntialiasMode.Aliased;
+            renderTarget.AntialiasMode = AntialiasMode.Aliased;
 
             using (var factory = swapChain.GetParent<FactoryDXGI>())
                 factory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
 
-            form.KeyDown += (o, e) =>
-            {
-                if (e.Alt && e.KeyCode == Keys.Enter)
-                    swapChain.IsFullScreen = !swapChain.IsFullScreen;
-            };
-            form.FormClosing += MIDITrailer_FormClosing;
-
             form.Size = new Size((int)(SIZE.Width / (dpi.Width / 96f)), (int)(SIZE.Height / (dpi.Height / 96f)));
             form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            #endregion
 
+            #region create_gfx
+            // Generate common brushes
             brushes = new Brush[colors.Length];
             for (int i = 0; i < colors.Length; i++)
-                brushes[i] = new SolidColorBrush(renderTarget, new Color4(colors[i]));
+                brushes[i] = new SolidColorBrush(renderTarget, colors[i]);
+            channelBrushes = new Brush[channelColors.Length];
+            for(int i = 0; i < channelColors.Length; i++)
+                channelBrushes[i] = new SolidColorBrush(renderTarget, channelColors[i]);
+
+            // Generate common gradients
             keyboardGradient = new LinearGradientBrush(renderTarget,
                 new GradientStopCollection(renderTarget, new[] {
                     new GradientStop()
@@ -143,17 +144,27 @@ namespace MIDITrailer
             backgroundGradient = new LinearGradientBrush(renderTarget,
                 new GradientStopCollection(renderTarget, new[] {
                     new GradientStop()
-                    { Color = new Color4(Color.DimGray), Position = 0 },
+                    { Color = Color.Black, Position = 1f },
                     new GradientStop()
-                    { Color = new Color4(Color.DarkGray), Position = 1 }
+                    { Color = Color.FromArgb(30, 30, 30), Position = 0f }
                 }),
                 new LinearGradientBrushProperties()
                 {
                     StartPoint = new PointF(0, renderTarget.Size.Height),
                     EndPoint = new PointF(0, 0)
                 });
+            // Generate common fonts
             using (var factory = new Factory())
-                debugFormat = new TextFormat(factory, "Consolas", FontWeight.Normal, SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 18, "en-us");
+            {
+                debugFormat = new TextFormat(factory, "Consolas", FontWeight.UltraBold,
+                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 18, "en-us");
+                hugeFormat = new TextFormat(factory, "Terminal", FontWeight.UltraBold,
+                   SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 50, "en-us")
+                {
+                    TextAlignment = TextAlignment.Center,
+                    ParagraphAlignment = ParagraphAlignment.Center
+                };
+            }
             #endregion
 
             #region init_timers
@@ -171,7 +182,23 @@ namespace MIDITrailer
             };
             #endregion
 
-            Load();
+            form.KeyDown += (o, e) =>
+            {
+                Keys key = e.KeyCode;
+                switch (key)
+                {
+                    case Keys.F11:
+                        swapChain.IsFullScreen = !swapChain.IsFullScreen;
+                        break;
+                    case Keys.F:
+                        Fancy = !Fancy;
+                        break;
+                }
+            };
+
+            Thread t = new Thread(Load);
+            t.Start();
+
             MessagePump.Run(form, () =>
             {
                 UpdateNotePositions();
@@ -182,10 +209,16 @@ namespace MIDITrailer
             renderTarget.Dispose();
             swapChain.Dispose();
             device.Dispose();
+            outDevice.Close();
+            outDevice.Dispose();
+            sequencer.Stop();
+            sequencer.Dispose();
+            sequence?.Dispose();
         }
 
         private void Load()
         {
+            Loading = true;
             outDevice = new OutputDevice(0);
             sequencer = new Sequencer();
             sequence = new Sequence();
@@ -269,6 +302,7 @@ namespace MIDITrailer
             };
             sequence.LoadCompleted += delegate (object o, AsyncCompletedEventArgs args)
             {
+                Loading = false;
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
@@ -278,28 +312,40 @@ namespace MIDITrailer
         const int KEY_HEIGHT = 40;
         const int BLACK_KEY_HEIGHT = 20;
         readonly bool[] isBlack = { false, true, false, true, false, false, true, false, true, false, true, false };
-        private static readonly Color[] colors = {
+        private static readonly Color[] channelColors = {
             Color.Red,          Color.Orange,       Color.Yellow,
             Color.Green,        Color.Blue,         Color.Indigo,
             Color.Violet,       Color.Pink,         Color.OrangeRed,
             Color.GreenYellow,  Color.Lime,         Color.Cyan,
             Color.Purple,       Color.DarkViolet,   Color.Bisque,
-            Color.Brown,        Color.White,        Color.Black,
-            Color.FromArgb(30, 30, 30),             Color.IndianRed};
+            Color.Brown
+        };
+        private static readonly Color[] colors = {
+            Color.White,        Color.Black,        Color.FromArgb(30, 30, 30),
+            Color.IndianRed,    Color.Red
+        };
 
+        private static Brush[] channelBrushes;
         private static Brush[] brushes;
+        
         private LinearGradientBrush keyboardGradient;
         private LinearGradientBrush backgroundGradient;
+
         private TextFormat debugFormat;
+        private TextFormat hugeFormat;
 
         public void Paint(RenderTarget target)
         {
             target.BeginDraw();
             target.Transform = Matrix3x2.Identity;
-            target.FillRectangle(backgroundGradient, new RectangleF(PointF.Empty, target.Size));
+            if (Fancy)
+                target.FillRectangle(backgroundGradient, new RectangleF(PointF.Empty, target.Size));
+            else
+                target.Clear(Color.Black);
 
             float kw = target.Size.Width / 128.0f;
             float keyboardY = target.Size.Height - KEY_HEIGHT;
+            #region draw_notes
             lock (notes)
             {
                 foreach (Note n in notes)
@@ -309,67 +355,83 @@ namespace MIDITrailer
                     if (Fancy)
                     {
                         float alpha = n.Velocity / 127f * (channelVolume[n.Channel] / 127f);
-                        using (var brush = new SolidColorBrush(target, new Color4(colors[n.Channel]) { Alpha = alpha }))
-                            target.FillRectangle(brush, rect);
-                        using (var brush = new SolidColorBrush(target, new Color4(ControlPaint.Dark(colors[n.Channel])) { Alpha = alpha }))
+                        channelBrushes[n.Channel].Opacity = alpha;
+                        target.FillRectangle(channelBrushes[n.Channel], rect);
+                        using (var brush = new SolidColorBrush(target, ControlPaint.Light(channelColors[n.Channel], .01f)) { Opacity = alpha })
                             target.DrawRectangle(brush, rect, 3f);
                     }
                     else
                     {
-                        target.FillRectangle(brushes[n.Channel], rect);
-                        target.DrawRectangle(brushes[17], rect, 1f);
+                        target.FillRectangle(channelBrushes[n.Channel], rect);
+                        // target.DrawRectangle(brushes[1], rect, 1f);
                     }
                 }
             }
+            #endregion
 
+            #region draw_keyboard
             target.FillRectangle(keyboardGradient, new RectangleF(0, keyboardY, target.Size.Width, KEY_HEIGHT));
-            target.DrawLine(brushes[17], 0, keyboardY, target.Size.Width, keyboardY, 1f);
+            target.DrawLine(brushes[1], 0, keyboardY, target.Size.Width, keyboardY, 1f);
             for (int i = 0; i < 128; i++)
             {
+                float keyX = i * kw;
                 if (isBlack[i % 12])
                 {
                     if (keyPressed[i] > 0)
                     {
-                        target.FillRectangle(brushes[0], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
+                        target.FillRectangle(brushes[4], new RectangleF(keyX, keyboardY, kw, BLACK_KEY_HEIGHT));
                     }
                     else
                     {
-                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY, kw, BLACK_KEY_HEIGHT));
-                        target.FillRectangle(brushes[17], new RectangleF(i * kw, keyboardY + BLACK_KEY_HEIGHT * 4f / 5, kw, BLACK_KEY_HEIGHT / 5f));
+                        target.FillRectangle(brushes[2], new RectangleF(keyX, keyboardY, kw, BLACK_KEY_HEIGHT));
+                        target.FillRectangle(brushes[1], new RectangleF(keyX, keyboardY + BLACK_KEY_HEIGHT * 4f / 5, kw, BLACK_KEY_HEIGHT / 5f));
                     }
                 }
                 else
                 {
                     if (keyPressed[i] > 0)
                     {
-                        target.FillRectangle(brushes[19], new RectangleF(i * kw, keyboardY, kw, KEY_HEIGHT));
+                        target.FillRectangle(brushes[3], new RectangleF(keyX, keyboardY, kw, KEY_HEIGHT));
                         if (isBlack[(i + 1) % 12])
-                            target.FillRectangle(brushes[19], new RectangleF(i * kw + kw, keyboardY + BLACK_KEY_HEIGHT, kw / 2, KEY_HEIGHT - BLACK_KEY_HEIGHT));
+                            target.FillRectangle(brushes[3], new RectangleF(keyX + kw, keyboardY + BLACK_KEY_HEIGHT, kw / 2, KEY_HEIGHT - BLACK_KEY_HEIGHT));
                         if (isBlack[(i + 11) % 12])
-                            target.FillRectangle(brushes[19], new RectangleF(i * kw - kw / 2, keyboardY + BLACK_KEY_HEIGHT, kw / 2, KEY_HEIGHT - BLACK_KEY_HEIGHT));
+                            target.FillRectangle(brushes[3], new RectangleF(keyX - kw / 2, keyboardY + BLACK_KEY_HEIGHT, kw / 2, KEY_HEIGHT - BLACK_KEY_HEIGHT));
                     }
                     else
                     {
-                        target.FillRectangle(brushes[18], new RectangleF(i * kw, keyboardY + KEY_HEIGHT * 7f / 8, kw, KEY_HEIGHT / 8f));
+                        target.FillRectangle(brushes[2], new RectangleF(keyX, keyboardY + KEY_HEIGHT * 7f / 8, kw, KEY_HEIGHT / 8f));
                         if (isBlack[(i + 1) % 12])
-                            target.FillRectangle(brushes[18], new RectangleF(i * kw + kw, keyboardY + KEY_HEIGHT * 7f / 8, kw, KEY_HEIGHT / 8f));
+                            target.FillRectangle(brushes[2], new RectangleF(keyX + kw, keyboardY + KEY_HEIGHT * 7f / 8, kw, KEY_HEIGHT / 8f));
                         if (isBlack[(i + 11) % 12])
-                            target.FillRectangle(brushes[18], new RectangleF(i * kw - kw / 2, keyboardY + KEY_HEIGHT * 7f / 8, kw, KEY_HEIGHT / 8f));
+                            target.FillRectangle(brushes[2], new RectangleF(keyX - kw / 2, keyboardY + KEY_HEIGHT * 7f / 8, kw, KEY_HEIGHT / 8f));
                     }
                 }
                 if (isBlack[i % 12])
-                    target.DrawLine(brushes[17], i * kw + kw / 2, keyboardY + BLACK_KEY_HEIGHT, i * kw + kw / 2, target.Size.Height, 1f);
+                    target.DrawLine(brushes[1], keyX + kw / 2, keyboardY + BLACK_KEY_HEIGHT, i * kw + kw / 2, target.Size.Height, 1f);
                 else if (!isBlack[(i + 11) % 12])
-                    target.DrawLine(brushes[17], i * kw, keyboardY, i * kw, target.Size.Height, 1f);
+                    target.DrawLine(brushes[1], keyX, keyboardY, keyX, target.Size.Height, 1f);
             }
+            #endregion
 
             string[] debug =
             {
                 "note_count: " + notes.Count,
+                "     fancy: " + Fancy
             };
 
             for (int i = 0; i < debug.Length; i++)
-                target.DrawText(debug[i], debugFormat, new Rectangle(10, 10 + i * 15, 400, 0), brushes[17], DrawTextOptions.None, MeasuringMethod.Natural);
+            {
+                target.DrawText(debug[i], debugFormat, new Rectangle(10, 10 + i * 20, 300, 0), brushes[1],
+                    DrawTextOptions.None, MeasuringMethod.Natural);
+                target.DrawText(debug[i], debugFormat, new Rectangle(10 + 1, 10 + i * 20 + 1, 300, 0), brushes[0],
+                    DrawTextOptions.None, MeasuringMethod.Natural);
+            }
+
+            if (Loading)
+            {
+                target.DrawText("LOADING", hugeFormat, new RectangleF(0, 0, target.Size.Width, target.Size.Height), brushes[0],
+                    DrawTextOptions.None, MeasuringMethod.Natural);
+            }
             target.EndDraw();
         }
 
@@ -399,15 +461,6 @@ namespace MIDITrailer
         public static int Get14BitValue(int nLowerPart, int nHigherPart)
         {
             return (nLowerPart & 0x7F) | ((nHigherPart & 0x7F) << 7);
-        }
-
-        private void MIDITrailer_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            sequence.Dispose();
-            sequencer.Stop();
-            sequencer.Dispose();
-            outDevice.Close();
-            outDevice.Dispose();
         }
 
         public static void Main(string[] args)
