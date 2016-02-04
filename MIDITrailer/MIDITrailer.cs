@@ -59,8 +59,9 @@ namespace MIDITrailer
         private bool Fancy = true;
         private const int DELAY = 1000;
         private int Loading = -1;
+        private const int AUTO_FAST = 2250;
 
-        private const string MIDIFile = @"D:\Music\midis\lux aeterna black.mid";
+        private const string MIDIFile = @"D:\Music\midis\Necrofantasia.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -157,7 +158,22 @@ namespace MIDITrailer
                     StartPoint = new PointF(0, renderTarget.Size.Height),
                     EndPoint = new PointF(0, 0)
                 });
-
+            channelGradientBrushes = new LinearGradientBrush[channelColors.Length];
+            for (int i = 0; i < channelGradientBrushes.Length; i++)
+            {
+                channelGradientBrushes[i] = new LinearGradientBrush(renderTarget,
+                new GradientStopCollection(renderTarget, new[] {
+                    new GradientStop()
+                    { Color = ControlPaint.Dark(channelColors[i]), Position = 1f },
+                    new GradientStop()
+                    { Color = ControlPaint.Light(channelColors[i]), Position = 0f }
+                }),
+                new LinearGradientBrushProperties()
+                {
+                    StartPoint = new PointF(0, renderTarget.Size.Height),
+                    EndPoint = new PointF(0, 0)
+                });
+            }
             // Generate common fonts
             using (var factory = new Factory())
             {
@@ -208,14 +224,14 @@ namespace MIDITrailer
             MessagePump.Run(form, () =>
             {
                 UpdateNotePositions();
-                if (notes.Count > 3000)
+                if (notes.Count > AUTO_FAST)
                     Fancy = false;
                 else
                 {
                     if (UserFancy)
                         Fancy = true;
                 }
-                Paint(renderTarget);
+                //Paint(renderTarget);
                 swapChain.Present(1, PresentFlags.None);
             });
 
@@ -319,7 +335,7 @@ namespace MIDITrailer
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
-            sequence.LoadProgressChanged += delegate(object sender, ProgressChangedEventArgs args)
+            sequence.LoadProgressChanged += delegate (object sender, ProgressChangedEventArgs args)
             {
                 Loading = args.ProgressPercentage;
             };
@@ -344,6 +360,7 @@ namespace MIDITrailer
 
         private static Brush[] channelBrushes;
         private static Brush[] brushes;
+        private static LinearGradientBrush[] channelGradientBrushes;
 
         private LinearGradientBrush keyboardGradient;
         private LinearGradientBrush backgroundGradient;
@@ -364,22 +381,41 @@ namespace MIDITrailer
             #region draw_notes
             lock (notes)
             {
+                RoundedRectangle roundRect = new RoundedRectangle
+                {
+                    RadiusX = 3,
+                    RadiusY = 3
+                };
+                RectangleF rect = new RectangleF();
+                PointF p = new PointF();
                 foreach (Note n in notes)
                 {
                     float wheelOffset = (pitchwheel[n.Channel] - 8192) / 8192f * 2 * kw;
-                    RectangleF rect = new RectangleF(n.Key * kw + (n.Position + n.Length >= keyboardY ? wheelOffset : 0), n.Position, kw, n.Length);
+                    float left = n.Key * kw + (n.Position + n.Length >= keyboardY ? wheelOffset : 0);
                     if (Fancy)
                     {
+                        float top = n.Position;
+                        roundRect.Left = left;
+                        roundRect.Top = top;
+                        roundRect.Right = left + kw;
+                        roundRect.Bottom = top + n.Length;
+
                         float alpha = n.Velocity / 127f * (channelVolume[n.Channel] / 127f);
-                        channelBrushes[n.Channel].Opacity = alpha;
-                        target.FillRectangle(channelBrushes[n.Channel], rect);
-                        using (var brush = new SolidColorBrush(target, ControlPaint.Light(channelColors[n.Channel], .01f)) { Opacity = alpha })
-                            target.DrawRectangle(brush, rect, 3f);
+                        var gradientBrush = channelGradientBrushes[n.Channel];
+                        gradientBrush.Opacity = alpha;
+                        p.X = roundRect.Left;
+                        gradientBrush.StartPoint = p;
+                        p.X = roundRect.Right;
+                        gradientBrush.EndPoint = p;
+                        target.FillRoundedRectangle(channelGradientBrushes[n.Channel], roundRect);
                     }
                     else
                     {
+                        rect.X = left;
+                        rect.Y = n.Position;
+                        rect.Width = kw;
+                        rect.Height = n.Length;
                         target.FillRectangle(channelBrushes[n.Channel], rect);
-                        // target.DrawRectangle(brushes[1], rect, 1f);
                     }
                 }
             }
@@ -432,7 +468,7 @@ namespace MIDITrailer
             string[] debug =
             {
                 "note_count: " + notes.Count,
-                "     fancy: " + Fancy,
+                "    render: " + (Fancy ? "fancy" : UserFancy ? "forced-fast" : "fast"),
                 "      note: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength())
             };
 
