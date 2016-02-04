@@ -53,7 +53,7 @@ namespace MIDITrailer
         private readonly int[] pitchwheel = new int[16];
 
         private RenderTarget renderTarget;
-        private readonly Size SIZE = new Size(1600, 900);
+        private readonly Size SIZE = new Size(1920, 1080);
         private Timer eventTimer;
         private bool UserFancy = true;
         private bool Fancy = true;
@@ -61,7 +61,7 @@ namespace MIDITrailer
         private int Loading = -1;
         private const int AUTO_FAST = 2250;
 
-        private const string MIDIFile = @"D:\Music\midis\Necrofantasia.mid";
+        private const string MIDIFile = @"D:\Music\midis\lordusaselementalflag.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -80,6 +80,8 @@ namespace MIDITrailer
             #region init_gfx
             var form = new RenderForm("MIDITrailer");
 
+            var factory = new FactoryD2D();
+            SizeF dpi = factory.DesktopDpi;
             // Create swap chain description
             var swapChainDesc = new SwapChainDescription()
             {
@@ -87,7 +89,7 @@ namespace MIDITrailer
                 Usage = Usage.RenderTargetOutput,
                 OutputHandle = form.Handle,
                 IsWindowed = true,
-                ModeDescription = new ModeDescription(SIZE.Width, SIZE.Height, new Rational(60, 1), Format.R8G8B8A8_UNorm),
+                ModeDescription = new ModeDescription((int) (SIZE.Width * (dpi.Width / 96f)), (int) (SIZE.Height * (dpi.Height / 96f)), new Rational(60, 1), Format.R8G8B8A8_UNorm),
                 SampleDescription = new SampleDescription(1, 0),
                 Flags = SwapChainFlags.AllowModeSwitch,
                 SwapEffect = SwapEffect.Discard,
@@ -99,28 +101,24 @@ namespace MIDITrailer
 
             Surface backBuffer = Surface.FromSwapChain(swapChain, 0);
 
-            SizeF dpi;
-            using (var factory = new FactoryD2D())
+            renderTarget = RenderTarget.FromDXGI(factory, backBuffer, new RenderTargetProperties()
             {
-                dpi = factory.DesktopDpi;
-                renderTarget = RenderTarget.FromDXGI(factory, backBuffer, new RenderTargetProperties()
-                {
-                    HorizontalDpi = dpi.Width,
-                    VerticalDpi = dpi.Height,
-                    MinimumFeatureLevel = SlimDX.Direct2D.FeatureLevel.Default,
-                    PixelFormat = new PixelFormat(Format.R8G8B8A8_UNorm, AlphaMode.Ignore),
-                    Type = RenderTargetType.Default,
-                    Usage = RenderTargetUsage.None
-                });
-            }
+                HorizontalDpi = dpi.Width,
+                VerticalDpi = dpi.Height,
+                MinimumFeatureLevel = SlimDX.Direct2D.FeatureLevel.Default,
+                PixelFormat = new PixelFormat(Format.R8G8B8A8_UNorm, AlphaMode.Ignore),
+                Type = RenderTargetType.Default,
+                Usage = RenderTargetUsage.None
+            });
+            factory.Dispose();
 
             // Freaking antialiasing lagging up my programs
             renderTarget.AntialiasMode = AntialiasMode.Aliased;
 
-            using (var factory = swapChain.GetParent<FactoryDXGI>())
-                factory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
+            using (var DXGIFactory = swapChain.GetParent<FactoryDXGI>())
+                DXGIFactory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
 
-            form.Size = new Size((int)(SIZE.Width / (dpi.Width / 96f)), (int)(SIZE.Height / (dpi.Height / 96f)));
+            form.Size = new Size(SIZE.Width, SIZE.Height);
             form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             #endregion
 
@@ -175,11 +173,11 @@ namespace MIDITrailer
                 });
             }
             // Generate common fonts
-            using (var factory = new Factory())
+            using (var textFactory = new Factory())
             {
-                debugFormat = new TextFormat(factory, "Consolas", FontWeight.UltraBold,
+                debugFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
                     SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 18, "en-us");
-                hugeFormat = new TextFormat(factory, "Consolas", FontWeight.UltraBold,
+                hugeFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 50, "en-us")
                 {
                     TextAlignment = TextAlignment.Center,
@@ -231,7 +229,7 @@ namespace MIDITrailer
                     if (UserFancy)
                         Fancy = true;
                 }
-                //Paint(renderTarget);
+                Paint(renderTarget);
                 swapChain.Present(1, PresentFlags.None);
             });
 
@@ -467,22 +465,20 @@ namespace MIDITrailer
 
             string[] debug =
             {
+                "      file: " + MIDIFile,
                 "note_count: " + notes.Count,
                 "    render: " + (Fancy ? "fancy" : UserFancy ? "forced-fast" : "fast"),
                 "      note: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength())
             };
-
-            for (int i = 0; i < debug.Length; i++)
-            {
-                target.DrawText(debug[i], debugFormat, new Rectangle(10, 10 + i * 20, 300, 0), brushes[1],
+            string debugText = debug.Aggregate("", (current, ss) => current + ss + '\n');
+            target.DrawText(debugText, debugFormat, new Rectangle(10, 10, SIZE.Width, 0), brushes[1],
                     DrawTextOptions.None, MeasuringMethod.Natural);
-                target.DrawText(debug[i], debugFormat, new Rectangle(10 + 1, 10 + i * 20 + 1, 300, 0), brushes[0],
-                    DrawTextOptions.None, MeasuringMethod.Natural);
-            }
+            target.DrawText(debugText, debugFormat, new Rectangle(10 + 1, 10 + 1, SIZE.Width, 0), brushes[0],
+                DrawTextOptions.None, MeasuringMethod.Natural);
 
             if (Loading == 0)
             {
-                target.DrawText("INITIALIZING MIDI DRIVERS", hugeFormat, new RectangleF(0, 0, target.Size.Width, target.Size.Height), brushes[0],
+                target.DrawText("INITIALIZING MIDI DEVICES", hugeFormat, new RectangleF(0, 0, target.Size.Width, target.Size.Height), brushes[0],
                    DrawTextOptions.None, MeasuringMethod.Natural);
             }
             else if (Loading > 0)
