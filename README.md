@@ -6,4 +6,4 @@ A program that visualizes a MIDI file on a piano, Synthesia style.
 [Even more up-to-date and tame demonstration](https://cdn.streamable.com/video/mp4/kc2z.mp4)<br>
 [Even, even more up-to-date demonstration](https://cdn.streamable.com/video/mp4/m7pb.mp4)
 
-![alt text](http://i.imgur.com/NkpA94U.png)
+![alt text](http://i.imgur.com/ccoGyUq.png)
