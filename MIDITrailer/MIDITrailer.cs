@@ -53,15 +53,20 @@ namespace MIDITrailer
         private readonly int[] pitchwheel = new int[16];
 
         private RenderTarget renderTarget;
-        private readonly Size SIZE = new Size(1920, 1080);
+        private readonly Size SIZE = new Size(1600, 900);
         private Timer eventTimer;
+
+        private const int RETURN_TO_FANCY_DELAY = 5000;
+        private const int AUTO_FAST = 1750;
+        private const int DELAY = 1000;
+
         private bool UserFancy = true;
         private bool Fancy = true;
-        private const int DELAY = 1000;
-        private int Loading = -1;
-        private const int AUTO_FAST = 2250;
 
-        private const string MIDIFile = @"D:\Music\midis\lordusaselementalflag.mid";
+        private int Loading = -1;
+        private long lastFancy = 0;
+
+        private const string MIDIFile = @"D:\Music\midis\08MagusNight.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -89,7 +94,7 @@ namespace MIDITrailer
                 Usage = Usage.RenderTargetOutput,
                 OutputHandle = form.Handle,
                 IsWindowed = true,
-                ModeDescription = new ModeDescription((int) (SIZE.Width * (dpi.Width / 96f)), (int) (SIZE.Height * (dpi.Height / 96f)), new Rational(60, 1), Format.R8G8B8A8_UNorm),
+                ModeDescription = new ModeDescription((int)(SIZE.Width * (dpi.Width / 96f)), (int)(SIZE.Height * (dpi.Height / 96f)), new Rational(60, 1), Format.R8G8B8A8_UNorm),
                 SampleDescription = new SampleDescription(1, 0),
                 Flags = SwapChainFlags.AllowModeSwitch,
                 SwapEffect = SwapEffect.Discard,
@@ -162,9 +167,9 @@ namespace MIDITrailer
                 channelGradientBrushes[i] = new LinearGradientBrush(renderTarget,
                 new GradientStopCollection(renderTarget, new[] {
                     new GradientStop()
-                    { Color = ControlPaint.Dark(channelColors[i]), Position = 1f },
+                    { Color = channelColors[i], Position = 1f },
                     new GradientStop()
-                    { Color = ControlPaint.Light(channelColors[i]), Position = 0f }
+                    { Color = ControlPaint.Light(channelColors[i], .8f), Position = 0f }
                 }),
                 new LinearGradientBrushProperties()
                 {
@@ -184,6 +189,9 @@ namespace MIDITrailer
                     ParagraphAlignment = ParagraphAlignment.Center
                 };
             }
+            // Generate common polygons
+            debugRectangle = new RectangleF(10, 10, SIZE.Width, 0);
+            fullRectangle = new RectangleF(0, 0, renderTarget.Size.Width, renderTarget.Size.Height);
             #endregion
 
             #region init_timers
@@ -223,11 +231,18 @@ namespace MIDITrailer
             {
                 UpdateNotePositions();
                 if (notes.Count > AUTO_FAST)
-                    Fancy = false;
+                {
+                    if (Fancy)
+                    {
+                        lastFancy = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+                        Fancy = false;
+                    }
+                }
                 else
                 {
                     if (UserFancy)
-                        Fancy = true;
+                        if (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond - lastFancy > RETURN_TO_FANCY_DELAY)
+                            Fancy = true;
                 }
                 Paint(renderTarget);
                 swapChain.Present(1, PresentFlags.None);
@@ -344,9 +359,9 @@ namespace MIDITrailer
         const int BLACK_KEY_HEIGHT = 20;
         readonly bool[] isBlack = { false, true, false, true, false, false, true, false, true, false, true, false };
         private static readonly Color[] channelColors = {
-            Color.Red,          Color.Orange,       Color.Yellow,
+            Color.Red,          Color.HotPink,      Color.Yellow,
             Color.Green,        Color.Blue,         Color.Indigo,
-            Color.Violet,       Color.Pink,         Color.OrangeRed,
+            Color.SteelBlue,    Color.Pink,         Color.OrangeRed,
             Color.GreenYellow,  Color.Lime,         Color.Cyan,
             Color.Purple,       Color.DarkViolet,   Color.Bisque,
             Color.Brown
@@ -366,6 +381,16 @@ namespace MIDITrailer
         private TextFormat debugFormat;
         private TextFormat hugeFormat;
 
+        private RectangleF debugRectangle;
+        private RectangleF fullRectangle;
+        private RoundedRectangle roundRect = new RoundedRectangle
+        {
+            RadiusX = 3,
+            RadiusY = 3
+        };
+        private RectangleF rect;
+        private PointF gradientPoint;
+
         public void Paint(RenderTarget target)
         {
             target.BeginDraw();
@@ -379,32 +404,26 @@ namespace MIDITrailer
             #region draw_notes
             lock (notes)
             {
-                RoundedRectangle roundRect = new RoundedRectangle
-                {
-                    RadiusX = 3,
-                    RadiusY = 3
-                };
-                RectangleF rect = new RectangleF();
-                PointF p = new PointF();
                 foreach (Note n in notes)
                 {
                     float wheelOffset = (pitchwheel[n.Channel] - 8192) / 8192f * 2 * kw;
-                    float left = n.Key * kw + (n.Position + n.Length >= keyboardY ? wheelOffset : 0);
+                    float bottom = n.Position + n.Length;
+                    float left = n.Key * kw + (bottom >= keyboardY ? wheelOffset : 0);
                     if (Fancy)
                     {
-                        float top = n.Position;
                         roundRect.Left = left;
-                        roundRect.Top = top;
+                        roundRect.Top = n.Position;
                         roundRect.Right = left + kw;
-                        roundRect.Bottom = top + n.Length;
+                        roundRect.Bottom = bottom;
 
                         float alpha = n.Velocity / 127f * (channelVolume[n.Channel] / 127f);
+                        alpha *= alpha;
                         var gradientBrush = channelGradientBrushes[n.Channel];
                         gradientBrush.Opacity = alpha;
-                        p.X = roundRect.Left;
-                        gradientBrush.StartPoint = p;
-                        p.X = roundRect.Right;
-                        gradientBrush.EndPoint = p;
+                        gradientPoint.X = roundRect.Left;
+                        gradientBrush.StartPoint = gradientPoint;
+                        gradientPoint.X = roundRect.Right;
+                        gradientBrush.EndPoint = gradientPoint;
                         target.FillRoundedRectangle(channelGradientBrushes[n.Channel], roundRect);
                     }
                     else
@@ -467,25 +486,16 @@ namespace MIDITrailer
             {
                 "      file: " + MIDIFile,
                 "note_count: " + notes.Count,
-                "    render: " + (Fancy ? "fancy" : UserFancy ? "forced-fast" : "fast"),
+                "  renderer: " + (Fancy ? "fancy" : UserFancy ? "forced-fast" : "fast"),
                 "      note: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength())
             };
             string debugText = debug.Aggregate("", (current, ss) => current + ss + '\n');
-            target.DrawText(debugText, debugFormat, new Rectangle(10, 10, SIZE.Width, 0), brushes[1],
-                    DrawTextOptions.None, MeasuringMethod.Natural);
-            target.DrawText(debugText, debugFormat, new Rectangle(10 + 1, 10 + 1, SIZE.Width, 0), brushes[0],
-                DrawTextOptions.None, MeasuringMethod.Natural);
+            target.DrawText(debugText, debugFormat, debugRectangle, brushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
 
             if (Loading == 0)
-            {
-                target.DrawText("INITIALIZING MIDI DEVICES", hugeFormat, new RectangleF(0, 0, target.Size.Width, target.Size.Height), brushes[0],
-                   DrawTextOptions.None, MeasuringMethod.Natural);
-            }
+                target.DrawText("INITIALIZING MIDI DEVICES", hugeFormat, fullRectangle, brushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
             else if (Loading > 0)
-            {
-                target.DrawText("LOADING " + Loading + "%", hugeFormat, new RectangleF(0, 0, target.Size.Width, target.Size.Height), brushes[0],
-                    DrawTextOptions.None, MeasuringMethod.Natural);
-            }
+                target.DrawText("LOADING " + Loading + "%", hugeFormat, fullRectangle, brushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
             target.EndDraw();
         }
 
@@ -510,6 +520,24 @@ namespace MIDITrailer
                     }
                 }
             }
+        }
+
+        public string ToSI(double d, string format = null)
+        {
+            char[] incPrefixes = new[] { 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y' };
+            char[] decPrefixes = new[] { 'm', '\u03bc', 'n', 'p', 'f', 'a', 'z', 'y' };
+
+            int degree = (int)Math.Floor(Math.Log10(Math.Abs(d)) / 3);
+            double scaled = d * Math.Pow(1000, -degree);
+
+            char? prefix = null;
+            switch (Math.Sign(degree))
+            {
+                case 1: prefix = incPrefixes[degree - 1]; break;
+                case -1: prefix = decPrefixes[-degree - 1]; break;
+            }
+
+            return scaled.ToString(format) + prefix;
         }
 
         public static int Get14BitValue(int nLowerPart, int nHigherPart)
