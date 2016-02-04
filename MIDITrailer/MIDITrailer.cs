@@ -37,6 +37,9 @@ using SwapEffect = SlimDX.DXGI.SwapEffect;
 using Timer = System.Timers.Timer;
 using Usage = SlimDX.DXGI.Usage;
 
+/*
+todo make a progress bar
+*/
 // ReSharper disable AccessToDisposedClosure
 namespace MIDITrailer
 {
@@ -52,11 +55,12 @@ namespace MIDITrailer
         private RenderTarget renderTarget;
         private readonly Size SIZE = new Size(1600, 900);
         private Timer eventTimer;
+        private bool UserFancy = true;
         private bool Fancy = true;
         private const int DELAY = 1000;
-        private bool Loading = false;
+        private int Loading = -1;
 
-        private const string MIDIFile = @"D:\Music\midis\mhwgo.mid";
+        private const string MIDIFile = @"D:\Music\midis\lux aeterna black.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -125,7 +129,7 @@ namespace MIDITrailer
             for (int i = 0; i < colors.Length; i++)
                 brushes[i] = new SolidColorBrush(renderTarget, colors[i]);
             channelBrushes = new Brush[channelColors.Length];
-            for(int i = 0; i < channelColors.Length; i++)
+            for (int i = 0; i < channelColors.Length; i++)
                 channelBrushes[i] = new SolidColorBrush(renderTarget, channelColors[i]);
 
             // Generate common gradients
@@ -153,12 +157,13 @@ namespace MIDITrailer
                     StartPoint = new PointF(0, renderTarget.Size.Height),
                     EndPoint = new PointF(0, 0)
                 });
+
             // Generate common fonts
             using (var factory = new Factory())
             {
                 debugFormat = new TextFormat(factory, "Consolas", FontWeight.UltraBold,
                     SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 18, "en-us");
-                hugeFormat = new TextFormat(factory, "Terminal", FontWeight.UltraBold,
+                hugeFormat = new TextFormat(factory, "Consolas", FontWeight.UltraBold,
                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 50, "en-us")
                 {
                     TextAlignment = TextAlignment.Center,
@@ -168,7 +173,7 @@ namespace MIDITrailer
             #endregion
 
             #region init_timers
-            eventTimer = new Timer(5) { Enabled = true };
+            eventTimer = new Timer(15) { Enabled = true };
             eventTimer.Elapsed += delegate
             {
                 lock (backlog)
@@ -192,6 +197,7 @@ namespace MIDITrailer
                         break;
                     case Keys.F:
                         Fancy = !Fancy;
+                        UserFancy = !UserFancy;
                         break;
                 }
             };
@@ -202,6 +208,13 @@ namespace MIDITrailer
             MessagePump.Run(form, () =>
             {
                 UpdateNotePositions();
+                if (notes.Count > 3000)
+                    Fancy = false;
+                else
+                {
+                    if (UserFancy)
+                        Fancy = true;
+                }
                 Paint(renderTarget);
                 swapChain.Present(1, PresentFlags.None);
             });
@@ -218,7 +231,7 @@ namespace MIDITrailer
 
         private void Load()
         {
-            Loading = true;
+            Loading = 0;
             outDevice = new OutputDevice(0);
             sequencer = new Sequencer();
             sequence = new Sequence();
@@ -302,9 +315,13 @@ namespace MIDITrailer
             };
             sequence.LoadCompleted += delegate (object o, AsyncCompletedEventArgs args)
             {
-                Loading = false;
+                Loading = -1;
                 sequencer.Sequence = sequence;
                 sequencer.Start();
+            };
+            sequence.LoadProgressChanged += delegate(object sender, ProgressChangedEventArgs args)
+            {
+                Loading = args.ProgressPercentage;
             };
             sequence.LoadAsync(MIDIFile);
         }
@@ -327,7 +344,7 @@ namespace MIDITrailer
 
         private static Brush[] channelBrushes;
         private static Brush[] brushes;
-        
+
         private LinearGradientBrush keyboardGradient;
         private LinearGradientBrush backgroundGradient;
 
@@ -342,7 +359,6 @@ namespace MIDITrailer
                 target.FillRectangle(backgroundGradient, new RectangleF(PointF.Empty, target.Size));
             else
                 target.Clear(Color.Black);
-
             float kw = target.Size.Width / 128.0f;
             float keyboardY = target.Size.Height - KEY_HEIGHT;
             #region draw_notes
@@ -416,7 +432,8 @@ namespace MIDITrailer
             string[] debug =
             {
                 "note_count: " + notes.Count,
-                "     fancy: " + Fancy
+                "     fancy: " + Fancy,
+                "      note: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength())
             };
 
             for (int i = 0; i < debug.Length; i++)
@@ -427,9 +444,14 @@ namespace MIDITrailer
                     DrawTextOptions.None, MeasuringMethod.Natural);
             }
 
-            if (Loading)
+            if (Loading == 0)
             {
-                target.DrawText("LOADING", hugeFormat, new RectangleF(0, 0, target.Size.Width, target.Size.Height), brushes[0],
+                target.DrawText("INITIALIZING MIDI DRIVERS", hugeFormat, new RectangleF(0, 0, target.Size.Width, target.Size.Height), brushes[0],
+                   DrawTextOptions.None, MeasuringMethod.Natural);
+            }
+            else if (Loading > 0)
+            {
+                target.DrawText("LOADING " + Loading + "%", hugeFormat, new RectangleF(0, 0, target.Size.Width, target.Size.Height), brushes[0],
                     DrawTextOptions.None, MeasuringMethod.Natural);
             }
             target.EndDraw();
