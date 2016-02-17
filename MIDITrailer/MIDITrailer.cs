@@ -49,7 +49,7 @@ namespace MIDITrailer
         private readonly Note[,] lastPlayed = new Note[16, 128];
 
         private RenderTarget renderTarget;
-        
+
         private Timer eventTimer;
 
         private const int RETURN_TO_FANCY_DELAY = 5000;
@@ -62,7 +62,7 @@ namespace MIDITrailer
         private int Loading = -1;
         private long LastFancyTick = 0;
 
-        private const string MIDIFile = @"D:\Music\midis\06AngelsLegend.mid";
+        private const string MIDIFile = @"D:\Music\midis\plasticmind.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -200,7 +200,7 @@ namespace MIDITrailer
                 int channel = args.Message.MidiChannel;
                 int data1 = args.Message.Data1;
                 int data2 = args.Message.Data2;
-                if (cmd == ChannelCommand.NoteOff || data2 == 0)
+                if (cmd == ChannelCommand.NoteOff || (cmd == ChannelCommand.NoteOn && data2 == 0))
                 {
                     if (lastPlayed[channel, data1] != null)
                     {
@@ -232,14 +232,20 @@ namespace MIDITrailer
                     backlog.Enqueue(new Event(delegate
                     {
                         outDevice.Send(args.Message);
-                        if (cmd == ChannelCommand.NoteOff || data2 == 0)
+                        if (cmd == ChannelCommand.NoteOff || (cmd == ChannelCommand.NoteOn && data2 == 0))
+                        {
                             if (Keyboard.KeyPressed[data1] > 0)
                                 Keyboard.KeyPressed[data1]--;
+                        }
                         else if (cmd == ChannelCommand.NoteOn)
+                        {
                             Keyboard.KeyPressed[data1]++;
+                        }
                         else if (cmd == ChannelCommand.Controller)
+                        {
                             if (data1 == 0x07)
                                 Keyboard.ChannelVolume[channel] = data2;
+                        }
                         else if (cmd == ChannelCommand.PitchWheel)
                         {
                             int pitchValue = Get14BitValue(data1, data2);
@@ -328,9 +334,9 @@ namespace MIDITrailer
             // Draw time progress bar
             if (sequence?.GetLength() > 0)
             {
-                float percentComplete = 1f*sequencer.Position/sequence.GetLength();
+                float percentComplete = 1f * sequencer.Position / sequence.GetLength();
                 target.FillRectangle(DefaultBrushes[5],
-                    new RectangleF(ProgressBarBounds.X, ProgressBarBounds.Y, ProgressBarBounds.Width*percentComplete, ProgressBarBounds.Height));
+                    new RectangleF(ProgressBarBounds.X, ProgressBarBounds.Y, ProgressBarBounds.Width * percentComplete, ProgressBarBounds.Height));
                 target.DrawRectangle(DefaultBrushes[2], ProgressBarBounds, .8f);
             }
 

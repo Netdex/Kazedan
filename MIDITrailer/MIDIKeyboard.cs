@@ -12,13 +12,16 @@ namespace MIDITrailer
 {
     class MIDIKeyboard : Renderable
     {
-        
-        public readonly int[] KeyPressed = new int[128];
-        public readonly int[] ChannelVolume = new int[16];
-        public readonly int[] Pitchwheel = new int[16];
+        public int[] KeyPressed { get; }
+        public int[] ChannelVolume { get; }
+        public int[] Pitchwheel { get; }
 
         public MIDIKeyboard()
         {
+            KeyPressed = new int[128];
+            ChannelVolume = new int[16];
+            Pitchwheel = new int[16];
+
             for (int i = 0; i < 16; i++)
             {
                 ChannelVolume[i] = 127;

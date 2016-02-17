@@ -43,6 +43,7 @@ namespace MIDITrailer
         public static LinearGradientBrush BackgroundGradient;
 
         public static TextFormat DebugFormat;
+        public static TextFormat SmallFormat;
         public static TextFormat HugeFormat;
 
         public static readonly RectangleF DebugRectangle = new RectangleF(10, 10, 500, 0);
@@ -114,6 +115,8 @@ namespace MIDITrailer
             {
                 DebugFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
                     SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 18, "en-us");
+                SmallFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
+                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 10, "en-us");
                 HugeFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 50, "en-us")
                 {
