@@ -35,7 +35,7 @@ namespace MIDITrailer
             target.DrawLine(DefaultBrushes[1], 0, KeyboardY, target.Size.Width, KeyboardY, 1f);
             for (int i = 0; i < 128; i++)
             {
-                float keyX = i * KeyWidth;
+                float keyX = i * KeyWidth - NoteOffset * KeyWidth;
                 if (IsBlack[i % 12])
                 {
                     if (KeyPressed[i] > 0)
@@ -68,7 +68,7 @@ namespace MIDITrailer
                     }
                 }
                 if (IsBlack[i % 12])
-                    target.DrawLine(DefaultBrushes[1], keyX + KeyWidth / 2, KeyboardY + BLACK_KEY_HEIGHT, i * KeyWidth + KeyWidth / 2, target.Size.Height, 1f);
+                    target.DrawLine(DefaultBrushes[1], keyX + KeyWidth / 2, KeyboardY + BLACK_KEY_HEIGHT, keyX + KeyWidth / 2, target.Size.Height, 1f);
                 else if (!IsBlack[(i + 11) % 12])
                     target.DrawLine(DefaultBrushes[1], keyX, KeyboardY, keyX, target.Size.Height, 1f);
             }

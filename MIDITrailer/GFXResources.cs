@@ -15,12 +15,15 @@ namespace MIDITrailer
 {
     class GFXResources
     {
-        public static readonly Size Bounds = new Size(1600, 900);
-        public const int KEY_HEIGHT = 40;
-        public const int BLACK_KEY_HEIGHT = 20;
+        public static readonly Size Bounds = new Size(1280, 720);
+        public static int KEY_HEIGHT = 80;
+        public static int BLACK_KEY_HEIGHT = 40;
+        public static int NoteOffset = 21;
+        public static int NoteCount = 88;
+
         public static readonly bool[] IsBlack = { false, true, false, true, false, false, true, false, true, false, true, false };
-        public static readonly float KeyboardY = Bounds.Height - KEY_HEIGHT;
-        public static readonly float KeyWidth = Bounds.Width/128.0f;
+        public static float KeyboardY => Bounds.Height - KEY_HEIGHT;
+        public static float KeyWidth => 1.0f * Bounds.Width / NoteCount;
 
         public static readonly Color[] ChannelColors = {
             Color.Red,          Color.HotPink,      Color.Yellow,
@@ -113,8 +116,8 @@ namespace MIDITrailer
             // Generate common fonts
             using (var textFactory = new Factory())
             {
-                DebugFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
-                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 18, "en-us");
+                DebugFormat = new TextFormat(textFactory, "Consolas", FontWeight.Bold,
+                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 12, "en-us");
                 SmallFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
                     SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 10, "en-us");
                 HugeFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,

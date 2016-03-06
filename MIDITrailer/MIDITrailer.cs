@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -54,15 +55,16 @@ namespace MIDITrailer
 
         private const int RETURN_TO_FANCY_DELAY = 5000;
         private const int AUTO_FAST = 1750;
-        private int Delay = 1000;
+        private int Delay = 700;
 
         private bool UserFancy = true;
         private bool Fancy = true;
+        private bool ShowDebug = true;
 
         private int Loading = -1;
         private long LastFancyTick = 0;
 
-        private const string MIDIFile = @"D:\Music\midis\plasticmind.mid";
+        private const string MIDIFile = @"D:\Music\midis\banomico.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -113,11 +115,12 @@ namespace MIDITrailer
 
             // Freaking antialiasing lagging up my programs
             renderTarget.AntialiasMode = AntialiasMode.Aliased;
+            renderTarget.TextAntialiasMode = TextAntialiasMode.Aliased;
 
             using (var DXGIFactory = swapChain.GetParent<FactoryDXGI>())
                 DXGIFactory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
 
-            form.Size = new Size(Bounds.Width, Bounds.Height);
+            form.ClientSize = Bounds;
             form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             #endregion
 
@@ -154,6 +157,7 @@ namespace MIDITrailer
                         Delay += 100;
                         notes.Clear();
                         backlog.Clear();
+                        Array.Clear(Keyboard.KeyPressed, 0, Keyboard.KeyPressed.Length);
                         break;
                     case Keys.Down:
                         if (Delay >= 100)
@@ -161,7 +165,19 @@ namespace MIDITrailer
                             Delay -= 100;
                             notes.Clear();
                             backlog.Clear();
+                            Array.Clear(Keyboard.KeyPressed, 0, Keyboard.KeyPressed.Length);
                         }
+                        break;
+                    case Keys.Left:
+                        if (NoteOffset > 0)
+                            NoteOffset--;
+                        break;
+                    case Keys.Right:
+                        if (NoteOffset < 128 - NoteCount)
+                            NoteOffset++;
+                        break;
+                    case Keys.D:
+                        ShowDebug = !ShowDebug;
                         break;
                 }
             };
@@ -299,7 +315,7 @@ namespace MIDITrailer
                 {
                     float wheelOffset = (Keyboard.Pitchwheel[n.Channel] - 8192) / 8192f * 2 * KeyWidth;
                     float bottom = n.Position + n.Length;
-                    float left = n.Key * KeyWidth + (bottom >= KeyboardY ? wheelOffset : 0);
+                    float left = n.Key * KeyWidth + (bottom >= KeyboardY ? wheelOffset : 0) - NoteOffset * KeyWidth;
                     if (Fancy)
                     {
                         NoteRoundRect.Left = left;
@@ -340,17 +356,31 @@ namespace MIDITrailer
                 target.DrawRectangle(DefaultBrushes[2], ProgressBarBounds, .8f);
             }
 
-
-            string[] debug =
+            string[] debug;
+            string usage = Application.ProductName + " " + Application.ProductVersion + " (c) " + Application.CompanyName;
+            if (ShowDebug)
             {
-                "      file: " + MIDIFile,
-                "note_count: " + notes.Count,
-                "  renderer: " + (Fancy ? "fancy" : UserFancy ? "forced-fast" : "fast"),
-                "      note: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength()),
-                "     delay: " + Delay
-            };
+                debug = new[]
+                {
+                    usage,
+                    "       file: " + MIDIFile,
+                    " note_count: " + notes.Count,
+                    "   renderer: " + (Fancy ? "fancy" : UserFancy ? "forced-fast" : "fast"),
+                    "       tick: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength()),
+                    "      delay: " + Delay,
+                    "note_offset: " + NoteOffset,
+                    " kbd_length: " + NoteCount,
+                    "  key_width: " + KeyWidth
+                };
+
+            }
+            else
+            {
+                debug = new[] { usage };
+            }
             string debugText = debug.Aggregate("", (current, ss) => current + ss + '\n');
-            target.DrawText(debugText, DebugFormat, DebugRectangle, DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
+            target.DrawText(debugText, DebugFormat, DebugRectangle, DefaultBrushes[0], DrawTextOptions.None,
+                MeasuringMethod.Natural);
 
             if (Loading == 0)
                 target.DrawText("INITIALIZING MIDI DEVICES", HugeFormat, FullRectangle, DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
