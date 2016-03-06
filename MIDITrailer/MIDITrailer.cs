@@ -53,9 +53,9 @@ namespace MIDITrailer
 
         private Timer eventTimer;
 
-        private const int RETURN_TO_FANCY_DELAY = 5000;
+        private const int RETURN_TO_FANCY_DELAY = 3000;
         private const int AUTO_FAST = 1750;
-        private int Delay = 700;
+        private int Delay = 1500;
 
         private bool UserFancy = true;
         private bool Fancy = true;
@@ -64,7 +64,7 @@ namespace MIDITrailer
         private int Loading = -1;
         private long LastFancyTick = 0;
 
-        private const string MIDIFile = @"D:\Music\midis\banomico.mid";
+        private const string MIDIFile = @"D:\Music\midis\William Tell Overture.mid";
         private OutputDevice outDevice;
         private Sequence sequence;
         private Sequencer sequencer;
@@ -150,8 +150,8 @@ namespace MIDITrailer
                         swapChain.IsFullScreen = !swapChain.IsFullScreen;
                         break;
                     case Keys.F:
-                        Fancy = !Fancy;
                         UserFancy = !UserFancy;
+                        Fancy = UserFancy;
                         break;
                     case Keys.Up:
                         Delay += 100;
@@ -313,33 +313,36 @@ namespace MIDITrailer
             {
                 foreach (Note n in notes)
                 {
-                    float wheelOffset = (Keyboard.Pitchwheel[n.Channel] - 8192) / 8192f * 2 * KeyWidth;
-                    float bottom = n.Position + n.Length;
-                    float left = n.Key * KeyWidth + (bottom >= KeyboardY ? wheelOffset : 0) - NoteOffset * KeyWidth;
-                    if (Fancy)
+                    if (n.Key > NoteOffset && n.Key < NoteOffset + NoteCount)
                     {
-                        NoteRoundRect.Left = left;
-                        NoteRoundRect.Top = n.Position;
-                        NoteRoundRect.Right = left + KeyWidth;
-                        NoteRoundRect.Bottom = bottom;
+                        float wheelOffset = (Keyboard.Pitchwheel[n.Channel] - 8192) / 8192f * 2 * KeyWidth;
+                        float bottom = n.Position + n.Length;
+                        float left = n.Key * KeyWidth + (bottom >= KeyboardY ? wheelOffset : 0) - NoteOffset * KeyWidth;
+                        if (Fancy)
+                        {
+                            NoteRoundRect.Left = left;
+                            NoteRoundRect.Top = n.Position;
+                            NoteRoundRect.Right = left + KeyWidth;
+                            NoteRoundRect.Bottom = bottom;
 
-                        float alpha = n.Velocity / 127f * (Keyboard.ChannelVolume[n.Channel] / 127f);
-                        alpha *= alpha;
-                        var gradientBrush = ChannelGradientBrushes[n.Channel];
-                        gradientBrush.Opacity = alpha;
-                        GradientPoint.X = NoteRoundRect.Left;
-                        gradientBrush.StartPoint = GradientPoint;
-                        GradientPoint.X = NoteRoundRect.Right;
-                        gradientBrush.EndPoint = GradientPoint;
-                        target.FillRoundedRectangle(ChannelGradientBrushes[n.Channel], NoteRoundRect);
-                    }
-                    else
-                    {
-                        NoteRect.X = left;
-                        NoteRect.Y = n.Position;
-                        NoteRect.Width = KeyWidth;
-                        NoteRect.Height = n.Length;
-                        target.FillRectangle(ChannelBrushes[n.Channel], NoteRect);
+                            float alpha = n.Velocity / 127f * (Keyboard.ChannelVolume[n.Channel] / 127f);
+                            alpha *= alpha;
+                            var gradientBrush = ChannelGradientBrushes[n.Channel];
+                            gradientBrush.Opacity = alpha;
+                            GradientPoint.X = NoteRoundRect.Left;
+                            gradientBrush.StartPoint = GradientPoint;
+                            GradientPoint.X = NoteRoundRect.Right;
+                            gradientBrush.EndPoint = GradientPoint;
+                            target.FillRoundedRectangle(ChannelGradientBrushes[n.Channel], NoteRoundRect);
+                        }
+                        else
+                        {
+                            NoteRect.X = left;
+                            NoteRect.Y = n.Position;
+                            NoteRect.Width = KeyWidth;
+                            NoteRect.Height = n.Length;
+                            target.FillRectangle(ChannelBrushes[n.Channel], NoteRect);
+                        }
                     }
                 }
             }
@@ -416,11 +419,8 @@ namespace MIDITrailer
         {
             if (notes.Count > AUTO_FAST)
             {
-                if (Fancy)
-                {
-                    LastFancyTick = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-                    Fancy = false;
-                }
+                LastFancyTick = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+                Fancy = false;
             }
             else
             {

@@ -33,7 +33,7 @@ namespace MIDITrailer
         {
             target.FillRectangle(KeyboardGradient, new RectangleF(0, KeyboardY, target.Size.Width, KEY_HEIGHT));
             target.DrawLine(DefaultBrushes[1], 0, KeyboardY, target.Size.Width, KeyboardY, 1f);
-            for (int i = 0; i < 128; i++)
+            for (int i = NoteOffset; i < NoteOffset + NoteCount; i++)
             {
                 float keyX = i * KeyWidth - NoteOffset * KeyWidth;
                 if (IsBlack[i % 12])

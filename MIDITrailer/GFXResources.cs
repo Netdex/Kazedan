@@ -15,7 +15,7 @@ namespace MIDITrailer
 {
     class GFXResources
     {
-        public static readonly Size Bounds = new Size(1280, 720);
+        public static readonly Size Bounds = new Size(1600, 900);
         public static int KEY_HEIGHT = 80;
         public static int BLACK_KEY_HEIGHT = 40;
         public static int NoteOffset = 21;
@@ -117,7 +117,7 @@ namespace MIDITrailer
             using (var textFactory = new Factory())
             {
                 DebugFormat = new TextFormat(textFactory, "Consolas", FontWeight.Bold,
-                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 12, "en-us");
+                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 14, "en-us");
                 SmallFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
                     SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 10, "en-us");
                 HugeFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
