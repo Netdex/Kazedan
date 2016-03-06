@@ -10,7 +10,7 @@ using static MIDITrailer.GFXResources;
 
 namespace MIDITrailer
 {
-    class MIDIKeyboard : Renderable
+    class MIDIKeyboard
     {
         public int[] KeyPressed { get; }
         public int[] ChannelVolume { get; }
