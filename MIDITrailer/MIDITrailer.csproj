@@ -87,6 +87,7 @@
     <Compile Include="Event.cs" />
     <Compile Include="GFXResources.cs" />
     <Compile Include="MIDIKeyboard.cs" />
+    <Compile Include="MIDISequencer.cs" />
     <Compile Include="MIDITrailer.cs" />
     <Compile Include="Note.cs" />
     <Compile Include="NoteRenderer.cs" />

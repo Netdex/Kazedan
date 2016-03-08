@@ -8,13 +8,13 @@ namespace MIDITrailer
 {
     class Event
     {
-        public DateTime StartTime { get; set; }
+        public long StartTime { get; set; }
         public Action Method { get; set; }
 
-        public Event(Action method, int delay)
+        public Event(Action method, long now, int delay)
         {
             Method = method;
-            StartTime = DateTime.Now + TimeSpan.FromMilliseconds(delay);
+            StartTime = now + delay;
         }
     }
 }

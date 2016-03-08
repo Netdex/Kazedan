@@ -29,6 +29,11 @@ namespace MIDITrailer
             }
         }
 
+        public void Reset()
+        {
+            Array.Clear(KeyPressed, 0, KeyPressed.Length);
+        }
+
         public void Render(RenderTarget target)
         {
             target.FillRectangle(KeyboardGradient, new RectangleF(0, KeyboardY, target.Size.Width, KEY_HEIGHT));
@@ -60,11 +65,11 @@ namespace MIDITrailer
                     }
                     else
                     {
-                        target.FillRectangle(DefaultBrushes[2], new RectangleF(keyX, KeyboardY + KEY_HEIGHT * 7f / 8, KeyWidth, KEY_HEIGHT / 8f));
+                        target.FillRectangle(DefaultBrushes[6], new RectangleF(keyX, KeyboardY + KEY_HEIGHT * 7f / 8, KeyWidth, KEY_HEIGHT / 8f));
                         if (IsBlack[(i + 1) % 12])
-                            target.FillRectangle(DefaultBrushes[2], new RectangleF(keyX + KeyWidth, KeyboardY + KEY_HEIGHT * 7f / 8, KeyWidth, KEY_HEIGHT / 8f));
+                            target.FillRectangle(DefaultBrushes[6], new RectangleF(keyX + KeyWidth, KeyboardY + KEY_HEIGHT * 7f / 8, KeyWidth, KEY_HEIGHT / 8f));
                         if (IsBlack[(i + 11) % 12])
-                            target.FillRectangle(DefaultBrushes[2], new RectangleF(keyX - KeyWidth / 2, KeyboardY + KEY_HEIGHT * 7f / 8, KeyWidth, KEY_HEIGHT / 8f));
+                            target.FillRectangle(DefaultBrushes[6], new RectangleF(keyX - KeyWidth / 2, KeyboardY + KEY_HEIGHT * 7f / 8, KeyWidth, KEY_HEIGHT / 8f));
                     }
                 }
                 if (IsBlack[i % 12])

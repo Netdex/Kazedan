@@ -15,7 +15,7 @@ namespace MIDITrailer
 {
     class GFXResources
     {
-        public static readonly Size Bounds = new Size(1600, 900);
+        public static readonly Size Bounds = new Size(1280, 720);
         public static int KEY_HEIGHT = 80;
         public static int BLACK_KEY_HEIGHT = 40;
         public static int NoteOffset = 21;
@@ -35,7 +35,8 @@ namespace MIDITrailer
         };
         public static readonly Color[] DefaultColors = {
             Color.White,        Color.Black,        Color.FromArgb(30, 30, 30),
-            Color.IndianRed,    Color.Red,          Color.FromArgb(100, 10, 200, 10)
+            Color.IndianRed,    Color.Red,          Color.FromArgb(100, 10, 200, 10),
+            Color.FromArgb(70, 70, 70),
         };
 
         public static Brush[] ChannelBrushes;

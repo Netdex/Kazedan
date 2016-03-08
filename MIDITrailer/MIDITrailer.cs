@@ -47,27 +47,13 @@ namespace MIDITrailer
     {
         private RenderTarget renderTarget;
 
-        private Timer eventTimer;
-        
-        private int Delay = 1500;
+        private const string MIDIFile = @"D:\Music\midis\necrofantasia.mid";
 
-        private bool ShowDebug = true;
-
-        private int Loading = -1;
-        private long LastFancyTick = 0;
-
-        private const string MIDIFile = @"D:\Music\midis\William Tell Overture.mid";
-        private OutputDevice outDevice;
-        private Sequence sequence;
-        private Sequencer sequencer;
-
-        public static MIDIKeyboard Keyboard;
-        public static NoteRenderer NoteManager;
+        public static MIDISequencer Sequencer;
 
         public MIDITrailer()
         {
-            Keyboard = new MIDIKeyboard();
-            NoteManager = new NoteRenderer();
+            Sequencer = new MIDISequencer();
         }
 
         public void Init()
@@ -84,7 +70,7 @@ namespace MIDITrailer
                 Usage = Usage.RenderTargetOutput,
                 OutputHandle = form.Handle,
                 IsWindowed = true,
-                ModeDescription = new ModeDescription((int)(GFXResources.Bounds.Width * (dpi.Width / 96f)), (int)(GFXResources.Bounds.Height * (dpi.Height / 96f)), new Rational(60, 1), Format.R8G8B8A8_UNorm),
+                ModeDescription = new ModeDescription((int)(Bounds.Width * (dpi.Width / 96f)), (int)(Bounds.Height * (dpi.Height / 96f)), new Rational(60, 1), Format.R8G8B8A8_UNorm),
                 SampleDescription = new SampleDescription(1, 0),
                 Flags = SwapChainFlags.AllowModeSwitch,
                 SwapEffect = SwapEffect.Discard,
@@ -109,7 +95,7 @@ namespace MIDITrailer
 
             // Freaking antialiasing lagging up my programs
             renderTarget.AntialiasMode = AntialiasMode.Aliased;
-            renderTarget.TextAntialiasMode = TextAntialiasMode.Aliased;
+            renderTarget.TextAntialiasMode = TextAntialiasMode.Grayscale;
 
             using (var DXGIFactory = swapChain.GetParent<FactoryDXGI>())
                 DXGIFactory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
@@ -121,18 +107,7 @@ namespace MIDITrailer
             GFXResources.Init(renderTarget);
 
             #region init_timers
-            eventTimer = new Timer(15) { Enabled = true };
-            eventTimer.Elapsed += delegate
-            {
-                lock (NoteManager.Backlog)
-                {
-                    while (NoteManager.Backlog.Any() && NoteManager.Backlog.First().StartTime <= DateTime.Now)
-                    {
-                        Event ev = NoteManager.Backlog.Dequeue();
-                        ev.Method();
-                    }
-                }
-            };
+
             #endregion
 
             form.KeyDown += (o, e) =>
@@ -144,22 +119,20 @@ namespace MIDITrailer
                         swapChain.IsFullScreen = !swapChain.IsFullScreen;
                         break;
                     case Keys.F:
-                        NoteManager.UserEnabledFancy = !NoteManager.UserEnabledFancy;
-                        NoteManager.RenderFancy = NoteManager.UserEnabledFancy;
+                        Sequencer.NoteRenderer.UserEnabledFancy = !Sequencer.NoteRenderer.UserEnabledFancy;
+                        Sequencer.NoteRenderer.RenderFancy = Sequencer.NoteRenderer.UserEnabledFancy;
                         break;
                     case Keys.Up:
-                        Delay += 100;
-                        NoteManager.Notes.Clear();
-                        NoteManager.Backlog.Clear();
-                        Array.Clear(Keyboard.KeyPressed, 0, Keyboard.KeyPressed.Length);
+                        Sequencer.Delay += 100;
+                        Sequencer.Keyboard.Reset();
+                        Sequencer.NoteRenderer.Reset();
                         break;
                     case Keys.Down:
-                        if (Delay >= 100)
+                        if (Sequencer.Delay >= 100)
                         {
-                            Delay -= 100;
-                            NoteManager.Notes.Clear();
-                            NoteManager.Backlog.Clear();
-                            Array.Clear(Keyboard.KeyPressed, 0, Keyboard.KeyPressed.Length);
+                            Sequencer.Delay -= 100;
+                            Sequencer.Keyboard.Reset();
+                            Sequencer.NoteRenderer.Reset();
                         }
                         break;
                     case Keys.Left:
@@ -171,7 +144,13 @@ namespace MIDITrailer
                             NoteOffset++;
                         break;
                     case Keys.D:
-                        ShowDebug = !ShowDebug;
+                        Sequencer.ShowDebug = !Sequencer.ShowDebug;
+                        break;
+                    case Keys.Space:
+                        if(Sequencer.Stopped)
+                            Sequencer.Start();
+                        else
+                            Sequencer.Stop();
                         break;
                 }
             };
@@ -181,8 +160,11 @@ namespace MIDITrailer
 
             MessagePump.Run(form, () =>
             {
-                UpdateNotePositions();
-                UpdateRenderer();
+                if (!Sequencer.Stopped)
+                {
+                    Sequencer.UpdateNotePositions();
+                    Sequencer.UpdateRenderer();
+                }
                 Paint(renderTarget);
                 swapChain.Present(1, PresentFlags.None);
             });
@@ -190,200 +172,26 @@ namespace MIDITrailer
             renderTarget.Dispose();
             swapChain.Dispose();
             device.Dispose();
-            outDevice.Close();
-            outDevice.Dispose();
-            sequencer.Stop();
-            sequencer.Dispose();
-            sequence?.Dispose();
+            Sequencer.Dispose();
         }
 
         private void Load()
         {
-            Loading = 0;
-            outDevice = new OutputDevice(0);
-            sequencer = new Sequencer();
-            sequence = new Sequence();
+            Sequencer.Init();
+            Sequencer.Load(MIDIFile);
+        }
 
-            sequencer.ChannelMessagePlayed += delegate (object o, ChannelMessageEventArgs args)
-            {
-                ChannelCommand cmd = args.Message.Command;
-                int channel = args.Message.MidiChannel;
-                int data1 = args.Message.Data1;
-                int data2 = args.Message.Data2;
-                if (cmd == ChannelCommand.NoteOff || (cmd == ChannelCommand.NoteOn && data2 == 0))
-                {
-                    if (NoteManager.LastPlayed[channel, data1] != null)
-                    {
-                        Note n = NoteManager.LastPlayed[channel, data1];
-                        n.Playing = false;
-                    }
-                }
-                else if (cmd == ChannelCommand.NoteOn)
-                {
-                    Note n = new Note()
-                    {
-                        Key = data1,
-                        Length = 0,
-                        Playing = true,
-                        Position = 0,
-                        Time = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond,
-                        Channel = channel,
-                        Velocity = data2
-                    };
-                    lock (NoteManager.Notes)
-                        NoteManager.Notes.Add(n);
-                    if (NoteManager.LastPlayed[channel, data1] != null)
-                        NoteManager.LastPlayed[channel, data1].Playing = false;
-                    NoteManager.LastPlayed[channel, data1] = n;
-                }
-
-                lock (NoteManager.Backlog)
-                {
-                    NoteManager.Backlog.Enqueue(new Event(delegate
-                    {
-                        outDevice.Send(args.Message);
-                        if (cmd == ChannelCommand.NoteOff || (cmd == ChannelCommand.NoteOn && data2 == 0))
-                        {
-                            if (Keyboard.KeyPressed[data1] > 0)
-                                Keyboard.KeyPressed[data1]--;
-                        }
-                        else if (cmd == ChannelCommand.NoteOn)
-                        {
-                            Keyboard.KeyPressed[data1]++;
-                        }
-                        else if (cmd == ChannelCommand.Controller)
-                        {
-                            if (data1 == 0x07)
-                                Keyboard.ChannelVolume[channel] = data2;
-                        }
-                        else if (cmd == ChannelCommand.PitchWheel)
-                        {
-                            int pitchValue = Get14BitValue(data1, data2);
-                            Keyboard.Pitchwheel[channel] = pitchValue;
-                        }
-                    }, Delay));
-                }
-            };
-            sequencer.SysExMessagePlayed += delegate (object o, SysExMessageEventArgs args)
-            {
-                lock (NoteManager.Backlog)
-                    NoteManager.Backlog.Enqueue(new Event(() => outDevice.Send(args.Message), Delay));
-            };
-            sequencer.Chased += delegate (object o, ChasedEventArgs args)
-            {
-                foreach (ChannelMessage message in args.Messages)
-                    lock (NoteManager.Backlog)
-                        NoteManager.Backlog.Enqueue(new Event(() => outDevice.Send(message), Delay));
-            };
-            sequencer.Stopped += delegate (object o, StoppedEventArgs args)
-            {
-                foreach (ChannelMessage message in args.Messages)
-                    lock (NoteManager.Backlog)
-                        NoteManager.Backlog.Enqueue(new Event(() => outDevice.Send(message), Delay));
-            };
-            sequence.LoadCompleted += delegate (object o, AsyncCompletedEventArgs args)
-            {
-                Loading = -1;
-                sequencer.Sequence = sequence;
-                sequencer.Start();
-            };
-            sequence.LoadProgressChanged += delegate (object sender, ProgressChangedEventArgs args)
-            {
-                Loading = args.ProgressPercentage;
-            };
-            sequence.LoadAsync(MIDIFile);
+        public void Reset()
+        {
+            Sequencer.Reset();
         }
 
         public void Paint(RenderTarget target)
         {
             target.BeginDraw();
             target.Transform = Matrix3x2.Identity;
-            if (NoteManager.RenderFancy)
-                target.FillRectangle(BackgroundGradient, new RectangleF(PointF.Empty, target.Size));
-            else
-                target.Clear(Color.Black);
-
-            NoteManager.Render(target);
-            Keyboard.Render(target);
-
-            // Draw time progress bar
-            if (sequence?.GetLength() > 0)
-            {
-                float percentComplete = 1f * sequencer.Position / sequence.GetLength();
-                target.FillRectangle(DefaultBrushes[5],
-                    new RectangleF(ProgressBarBounds.X, ProgressBarBounds.Y, ProgressBarBounds.Width * percentComplete, ProgressBarBounds.Height));
-                target.DrawRectangle(DefaultBrushes[2], ProgressBarBounds, .8f);
-            }
-
-            string[] debug;
-            string usage = Application.ProductName + " " + Application.ProductVersion + " (c) " + Application.CompanyName;
-            if (ShowDebug)
-            {
-                debug = new[]
-                {
-                    usage,
-                    "       file: " + MIDIFile,
-                    " note_count: " + NoteManager.Notes.Count,
-                    "   renderer: " + (NoteManager.RenderFancy ? "fancy" : NoteManager.UserEnabledFancy ? "forced-fast" : "fast"),
-                    "       tick: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength()),
-                    "      delay: " + Delay,
-                    "note_offset: " + NoteOffset,
-                    " kbd_length: " + NoteCount,
-                    "  key_width: " + KeyWidth
-                };
-
-            }
-            else
-            {
-                debug = new[] { usage };
-            }
-            string debugText = debug.Aggregate("", (current, ss) => current + ss + '\n');
-            target.DrawText(debugText, DebugFormat, DebugRectangle, DefaultBrushes[0], DrawTextOptions.None,
-                MeasuringMethod.Natural);
-
-            if (Loading == 0)
-                target.DrawText("INITIALIZING MIDI DEVICES", HugeFormat, FullRectangle, DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
-            else if (Loading > 0)
-                target.DrawText("LOADING " + Loading + "%", HugeFormat, FullRectangle, DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
+            Sequencer.Render(target);
             target.EndDraw();
-        }
-
-        public void UpdateNotePositions()
-        {
-            int keyboardY = (int)(renderTarget.Size.Height - KEY_HEIGHT);
-            long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-            float speed = 1.0f * keyboardY / Delay;
-            lock (NoteManager.Notes)
-            {
-                for (int i = 0; i < NoteManager.Notes.Count; i++)
-                {
-                    Note n = NoteManager.Notes[i];
-                    if (!n.Playing)
-                        n.Position = (now - n.Time) * speed - n.Length;
-                    else
-                        n.Length = (now - n.Time) * speed;
-                    if (n.Position > keyboardY)
-                    {
-                        NoteManager.Notes.RemoveAt(i);
-                        i--;
-                    }
-                }
-            }
-        }
-
-        public void UpdateRenderer()
-        {
-            if (NoteManager.Notes.Count > NoteRenderer.AUTO_FAST)
-            {
-                LastFancyTick = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-                NoteManager.RenderFancy = false;
-            }
-            else
-            {
-                if (NoteManager.UserEnabledFancy)
-                    if (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond - LastFancyTick > NoteRenderer.RETURN_TO_FANCY_DELAY)
-                        NoteManager.RenderFancy = true;
-            }
         }
 
         public string ToSI(double d, string format = null)
@@ -404,10 +212,7 @@ namespace MIDITrailer
             return scaled.ToString(format) + prefix;
         }
 
-        public static int Get14BitValue(int nLowerPart, int nHigherPart)
-        {
-            return (nLowerPart & 0x7F) | ((nHigherPart & 0x7F) << 7);
-        }
+
 
         public static void Main(string[] args)
         {
