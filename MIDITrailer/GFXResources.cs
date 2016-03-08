@@ -30,7 +30,7 @@ namespace MIDITrailer
             Color.Green,        Color.Blue,         Color.Indigo,
             Color.SteelBlue,    Color.Pink,         Color.OrangeRed,
             Color.GreenYellow,  Color.Lime,         Color.Cyan,
-            Color.Purple,       Color.DarkViolet,   Color.Bisque,
+            Color.Purple,       Color.DarkViolet,   Color.DarkSalmon,
             Color.Brown
         };
         public static readonly Color[] DefaultColors = {

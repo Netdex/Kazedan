@@ -47,9 +47,13 @@ namespace MIDITrailer
     {
         private RenderTarget renderTarget;
 
-        private const string MIDIFile = @"D:\Music\midis\necrofantasia.mid";
-
+        private const string MIDIFile = @"D:\Music\midis\Necrofantasia.mid";
         public static MIDISequencer Sequencer;
+
+        private long LastTick = Environment.TickCount;
+        public static long Elapsed = 0;
+        private long LastSample = Environment.TickCount;
+        private const long SampleRate = 1000;
 
         public MIDITrailer()
         {
@@ -95,13 +99,14 @@ namespace MIDITrailer
 
             // Freaking antialiasing lagging up my programs
             renderTarget.AntialiasMode = AntialiasMode.Aliased;
-            renderTarget.TextAntialiasMode = TextAntialiasMode.Grayscale;
+            renderTarget.TextAntialiasMode = TextAntialiasMode.Grayscale | TextAntialiasMode.Aliased;
 
             using (var DXGIFactory = swapChain.GetParent<FactoryDXGI>())
                 DXGIFactory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
 
             form.ClientSize = Bounds;
             form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            form.Icon = Properties.Resources.miditrailer;
             #endregion
 
             GFXResources.Init(renderTarget);
@@ -147,7 +152,7 @@ namespace MIDITrailer
                         Sequencer.ShowDebug = !Sequencer.ShowDebug;
                         break;
                     case Keys.Space:
-                        if(Sequencer.Stopped)
+                        if (Sequencer.Stopped)
                             Sequencer.Start();
                         else
                             Sequencer.Stop();
@@ -166,6 +171,14 @@ namespace MIDITrailer
                     Sequencer.UpdateRenderer();
                 }
                 Paint(renderTarget);
+
+                long tick = Environment.TickCount;
+                if (tick - LastSample >= SampleRate)
+                {
+                    Elapsed = tick - LastTick;
+                    LastSample = tick;
+                }
+                LastTick = tick;
                 swapChain.Present(1, PresentFlags.None);
             });
 

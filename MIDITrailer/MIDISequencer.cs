@@ -26,7 +26,7 @@ namespace MIDITrailer
 
         private readonly Stopwatch Stopwatch;
 
-        public string MIDIFile = @"D:\Music\midis\necrofantasia.mid";
+        public string MIDIFile = @"Loading...";
 
         private OutputDevice outDevice;
         private Sequence sequence;
@@ -58,7 +58,7 @@ namespace MIDITrailer
                     }
                 }
             };
-            
+
             Loading = 0;
             outDevice = new OutputDevice(0);
             sequencer = new Sequencer();
@@ -220,13 +220,13 @@ namespace MIDITrailer
                 debug = new[]
                 {
                     usage,
-                    "       file: " + MIDIFile,
-                    " note_count: " + NoteRenderer.Notes.Count,
-                    "   renderer: " + (NoteRenderer.RenderFancy ? "fancy" : NoteRenderer.UserEnabledFancy ? "forced-fast" : "fast"),
-                    "       tick: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength()),
-                    "      delay: " + Delay,
-                    "note_offset: " + NoteOffset,
-                    " kbd_length: " + NoteCount
+                    "      file: " + MIDIFile,
+                    "note_count: " + NoteRenderer.Notes.Count,
+                    "  frames/s: " + (MIDITrailer.Elapsed == 0 ? "NaN" : 1000 / MIDITrailer.Elapsed + "") +" fps",
+                    "  renderer: " + (NoteRenderer.RenderFancy ? "fancy" : NoteRenderer.UserEnabledFancy ? "forced-fast" : "fast"),
+                    "  seq_tick: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength()),
+                    "     delay: " + Delay+"ms",
+                    "       kbd: " + NoteCount + " key(s) +" + NoteOffset + " offset"
                 };
 
             }
