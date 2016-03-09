@@ -7,8 +7,8 @@
     <ProjectGuid>{58BBC644-7CB1-42C7-BF2F-57846C8C7293}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>MIDITrailer</RootNamespace>
-    <AssemblyName>MIDITrailer</AssemblyName>
+    <RootNamespace>Kazedan</RootNamespace>
+    <AssemblyName>Kazedan</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -91,7 +91,7 @@
     <Compile Include="GFXResources.cs" />
     <Compile Include="MIDIKeyboard.cs" />
     <Compile Include="MIDISequencer.cs" />
-    <Compile Include="MIDITrailer.cs" />
+    <Compile Include="Kazedan.cs" />
     <Compile Include="Note.cs" />
     <Compile Include="NoteRenderer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

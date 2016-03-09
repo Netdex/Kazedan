@@ -2,11 +2,10 @@
 using System.Drawing;
 using System.Threading;
 using System.Windows.Forms;
-
 using SlimDX;
-using SlimDX.DXGI;
-using SlimDX.Direct3D11;
 using SlimDX.Direct2D;
+using SlimDX.Direct3D11;
+using SlimDX.DXGI;
 using SlimDX.Windows;
 using Device = SlimDX.Direct3D11.Device;
 using FactoryD2D = SlimDX.Direct2D.Factory;
@@ -18,12 +17,10 @@ using SwapChain = SlimDX.DXGI.SwapChain;
 using SwapEffect = SlimDX.DXGI.SwapEffect;
 using Usage = SlimDX.DXGI.Usage;
 
-using static MIDITrailer.GFXResources;
-
 // ReSharper disable AccessToDisposedClosure
-namespace MIDITrailer
+namespace Kazedan
 {
-    class MIDITrailer
+    class Kazedan
     {
         private RenderTarget renderTarget;
 
@@ -35,7 +32,7 @@ namespace MIDITrailer
         private long LastSample = Environment.TickCount;
         private const long SampleRate = 1000;
 
-        public MIDITrailer()
+        public Kazedan()
         {
             Sequencer = new MIDISequencer();
         }
@@ -53,7 +50,7 @@ namespace MIDITrailer
                 Usage = Usage.RenderTargetOutput,
                 OutputHandle = form.Handle,
                 IsWindowed = true,
-                ModeDescription = new ModeDescription((int)(Bounds.Width * (dpi.Width / 96f)), (int)(Bounds.Height * (dpi.Height / 96f)), new Rational(60, 1), Format.R8G8B8A8_UNorm),
+                ModeDescription = new ModeDescription((int)(GFXResources.Bounds.Width * (dpi.Width / 96f)), (int)(GFXResources.Bounds.Height * (dpi.Height / 96f)), new Rational(60, 1), Format.R8G8B8A8_UNorm),
                 SampleDescription = new SampleDescription(1, 0),
                 Flags = SwapChainFlags.AllowModeSwitch,
                 SwapEffect = SwapEffect.Discard,
@@ -83,7 +80,7 @@ namespace MIDITrailer
             using (var DXGIFactory = swapChain.GetParent<FactoryDXGI>())
                 DXGIFactory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
 
-            form.ClientSize = Bounds;
+            form.ClientSize = GFXResources.Bounds;
             form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             form.Icon = Properties.Resources.miditrailer;
             #endregion
@@ -114,12 +111,12 @@ namespace MIDITrailer
                         }
                         break;
                     case Keys.Left:
-                        if (NoteOffset > 0)
-                            NoteOffset--;
+                        if (GFXResources.NoteOffset > 0)
+                            GFXResources.NoteOffset--;
                         break;
                     case Keys.Right:
-                        if (NoteOffset < 128 - NoteCount)
-                            NoteOffset++;
+                        if (GFXResources.NoteOffset < 128 - GFXResources.NoteCount)
+                            GFXResources.NoteOffset++;
                         break;
                     case Keys.D:
                         Sequencer.ShowDebug = !Sequencer.ShowDebug;
@@ -198,7 +195,7 @@ namespace MIDITrailer
 
         public static void Main(string[] args)
         {
-            MIDITrailer program = new MIDITrailer();
+            Kazedan program = new Kazedan();
             program.Init();
         }
     }

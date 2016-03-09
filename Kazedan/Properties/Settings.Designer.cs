@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace MIDITrailer.Properties
+namespace Kazedan.Properties
 {
 
 

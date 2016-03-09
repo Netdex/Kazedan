@@ -8,9 +8,8 @@ using Sanford.Multimedia.Midi;
 using SlimDX.Direct2D;
 using SlimDX.DirectWrite;
 using Timer = System.Timers.Timer;
-using static MIDITrailer.GFXResources;
 
-namespace MIDITrailer
+namespace Kazedan
 {
     class MIDISequencer : IDisposable
     {
@@ -218,7 +217,7 @@ namespace MIDITrailer
         {
             // Fill background depending on render mode
             if (NoteRenderer.RenderFancy)
-                target.FillRectangle(BackgroundGradient, new RectangleF(PointF.Empty, target.Size));
+                target.FillRectangle(GFXResources.BackgroundGradient, new RectangleF(PointF.Empty, target.Size));
             else
                 target.Clear(Color.Black);
 
@@ -230,9 +229,9 @@ namespace MIDITrailer
             if (sequence?.GetLength() > 0)
             {
                 float percentComplete = 1f * sequencer.Position / sequence.GetLength();
-                target.FillRectangle(DefaultBrushes[5],
-                    new RectangleF(ProgressBarBounds.X, ProgressBarBounds.Y, ProgressBarBounds.Width * percentComplete, ProgressBarBounds.Height));
-                target.DrawRectangle(DefaultBrushes[2], ProgressBarBounds, .8f);
+                target.FillRectangle(GFXResources.DefaultBrushes[5],
+                    new RectangleF(GFXResources.ProgressBarBounds.X, GFXResources.ProgressBarBounds.Y, GFXResources.ProgressBarBounds.Width * percentComplete, GFXResources.ProgressBarBounds.Height));
+                target.DrawRectangle(GFXResources.DefaultBrushes[2], GFXResources.ProgressBarBounds, .8f);
             }
 
             // Render debug information
@@ -245,11 +244,11 @@ namespace MIDITrailer
                     usage,
                     "      file: " + MIDIFile,
                     "note_count: " + NoteRenderer.Notes.Count,
-                    "  frames/s: " + (MIDITrailer.Elapsed == 0 ? "NaN" : 1000 / MIDITrailer.Elapsed + "") +" fps",
+                    "  frames/s: " + (Kazedan.Elapsed == 0 ? "NaN" : 1000 / Kazedan.Elapsed + "") +" fps",
                     "  renderer: " + (NoteRenderer.RenderFancy ? "fancy" : NoteRenderer.UserEnabledFancy ? "forced-fast" : "fast"),
                     "  seq_tick: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength()),
                     "     delay: " + Delay+"ms",
-                    "       kbd: " + NoteCount + " key(s) +" + NoteOffset + " offset"
+                    "       kbd: " + GFXResources.NoteCount + " key(s) +" + GFXResources.NoteOffset + " offset"
                 };
 
             }
@@ -258,19 +257,19 @@ namespace MIDITrailer
                 debug = new[] { usage };
             }
             string debugText = debug.Aggregate("", (current, ss) => current + ss + '\n');
-            target.DrawText(debugText, DebugFormat, DebugRectangle, DefaultBrushes[0], DrawTextOptions.None,
+            target.DrawText(debugText, GFXResources.DebugFormat, GFXResources.DebugRectangle, GFXResources.DefaultBrushes[0], DrawTextOptions.None,
                 MeasuringMethod.Natural);
 
             // Render large title text
             if (Loading == 0)
-                target.DrawText("INITIALIZING MIDI DEVICES", HugeFormat, FullRectangle, DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
+                target.DrawText("INITIALIZING MIDI DEVICES", GFXResources.HugeFormat, GFXResources.FullRectangle, GFXResources.DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
             else if (Loading > 0)
-                target.DrawText("LOADING " + Loading + "%", HugeFormat, FullRectangle, DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
+                target.DrawText("LOADING " + Loading + "%", GFXResources.HugeFormat, GFXResources.FullRectangle, GFXResources.DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
         }
 
         public void UpdateNotePositions()
         {
-            int keyboardY = Bounds.Height - KeyHeight;
+            int keyboardY = GFXResources.Bounds.Height - GFXResources.KeyHeight;
             long now = Stopwatch.ElapsedMilliseconds;
             float speed = 1.0f * keyboardY / Delay;
             // Update all note positions
