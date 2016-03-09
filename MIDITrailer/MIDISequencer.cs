@@ -1,15 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using Sanford.Multimedia.Midi;
 using SlimDX.Direct2D;
-using SlimDX.Direct3D10;
 using SlimDX.DirectWrite;
 using Timer = System.Timers.Timer;
 using static MIDITrailer.GFXResources;
@@ -18,12 +14,12 @@ namespace MIDITrailer
 {
     class MIDISequencer : IDisposable
     {
-        public int Delay { get; set; } = 600;
+        public int Delay { get; set; } = 1000;
         public bool ShowDebug { get; set; } = true;
         private int Loading { get; set; } = -1;
-        private long LastFancyTick { get; set; } = 0;
-        public bool Stopped { get; set; }
-
+        private long LastFancyTick { get; set; }
+        public bool Stopped { get; private set; } = true;
+        public bool Initialized { get; private set; }
         private readonly Stopwatch Stopwatch;
 
         public string MIDIFile = @"Loading...";
@@ -46,6 +42,12 @@ namespace MIDITrailer
 
         public void Init()
         {
+            // Make sure we don't initialize twice and create a disaster
+            if (Initialized)
+                return;
+            Initialized = true;
+
+            // Create timer for event management
             eventTimer = new Timer(15);
             eventTimer.Elapsed += delegate
             {
@@ -60,10 +62,12 @@ namespace MIDITrailer
             };
 
             Loading = 0;
+            // Create handles to MIDI devices
             outDevice = new OutputDevice(0);
             sequencer = new Sequencer();
             sequence = new Sequence();
 
+            // Set custom event handlers for sequencer
             sequencer.ChannelMessagePlayed += delegate (object o, ChannelMessageEventArgs args)
             {
                 ChannelCommand cmd = args.Message.Command;
@@ -143,6 +147,12 @@ namespace MIDITrailer
             };
             sequence.LoadCompleted += delegate (object o, AsyncCompletedEventArgs args)
             {
+                if (args.Cancelled)
+                {
+                    MessageBox.Show("The operation was cancelled.", "MIDITrailer - Error", MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
                 Loading = -1;
                 sequencer.Sequence = sequence;
                 sequencer.Start();
@@ -151,6 +161,7 @@ namespace MIDITrailer
             {
                 Loading = args.ProgressPercentage;
             };
+            // Begin playing something
             Start();
         }
 
@@ -164,6 +175,9 @@ namespace MIDITrailer
         {
             Keyboard.Reset();
             NoteRenderer.Reset();
+            for (int i = 0; i < 16; i++)
+                for (int j = 0; j < 128; j++)
+                    outDevice.Send(new ChannelMessage(ChannelCommand.NoteOff, i, j));
         }
 
         public void Dispose()
@@ -177,6 +191,8 @@ namespace MIDITrailer
 
         public void Stop()
         {
+            if (Stopped)
+                return;
             eventTimer.Stop();
             sequencer.Stop();
             Stopwatch.Stop();
@@ -185,22 +201,28 @@ namespace MIDITrailer
 
         public void Start()
         {
+            if (!Stopped)
+                return;
+
             eventTimer.Start();
             if (sequencer.Position > 0)
                 sequencer.Continue();
             else
                 sequencer.Start();
+            
             Stopwatch.Start();
             Stopped = false;
         }
 
         public void Render(RenderTarget target)
         {
+            // Fill background depending on render mode
             if (NoteRenderer.RenderFancy)
                 target.FillRectangle(BackgroundGradient, new RectangleF(PointF.Empty, target.Size));
             else
                 target.Clear(Color.Black);
 
+            // Render notes and keyboard display
             NoteRenderer.Render(target);
             Keyboard.Render(target);
 
@@ -213,6 +235,7 @@ namespace MIDITrailer
                 target.DrawRectangle(DefaultBrushes[2], ProgressBarBounds, .8f);
             }
 
+            // Render debug information
             string[] debug;
             string usage = Application.ProductName + " " + Application.ProductVersion + " (c) " + Application.CompanyName;
             if (ShowDebug)
@@ -238,6 +261,7 @@ namespace MIDITrailer
             target.DrawText(debugText, DebugFormat, DebugRectangle, DefaultBrushes[0], DrawTextOptions.None,
                 MeasuringMethod.Natural);
 
+            // Render large title text
             if (Loading == 0)
                 target.DrawText("INITIALIZING MIDI DEVICES", HugeFormat, FullRectangle, DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
             else if (Loading > 0)
@@ -246,9 +270,10 @@ namespace MIDITrailer
 
         public void UpdateNotePositions()
         {
-            int keyboardY = Bounds.Height - KEY_HEIGHT;
+            int keyboardY = Bounds.Height - KeyHeight;
             long now = Stopwatch.ElapsedMilliseconds;
             float speed = 1.0f * keyboardY / Delay;
+            // Update all note positions
             lock (NoteRenderer.Notes)
             {
                 for (int i = 0; i < NoteRenderer.Notes.Count; i++)
@@ -269,6 +294,7 @@ namespace MIDITrailer
 
         public void UpdateRenderer()
         {
+            // Update forced-fast mode
             if (NoteRenderer.Notes.Count > NoteRenderer.ForcedFastThreshold)
             {
                 LastFancyTick = Stopwatch.ElapsedMilliseconds;

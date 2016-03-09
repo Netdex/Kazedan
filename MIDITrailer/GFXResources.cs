@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Drawing;
 using System.Windows.Forms;
 using SlimDX;
 using SlimDX.Direct2D;
@@ -15,14 +10,14 @@ namespace MIDITrailer
 {
     class GFXResources
     {
-        public static readonly Size Bounds = new Size(1280, 720);
-        public static int KEY_HEIGHT = 80;
-        public static int BLACK_KEY_HEIGHT = 40;
+        public static readonly Size Bounds = new Size(1600, 900);
+        public static int KeyHeight = 80;
+        public static int BlackKeyHeight = 40;
         public static int NoteOffset = 21;
         public static int NoteCount = 88;
 
         public static readonly bool[] IsBlack = { false, true, false, true, false, false, true, false, true, false, true, false };
-        public static float KeyboardY => Bounds.Height - KEY_HEIGHT;
+        public static float KeyboardY => Bounds.Height - KeyHeight;
         public static float KeyWidth => 1.0f * Bounds.Width / NoteCount;
 
         public static readonly Color[] ChannelColors = {
@@ -84,7 +79,7 @@ namespace MIDITrailer
                 new LinearGradientBrushProperties()
                 {
                     StartPoint = new PointF(0, renderTarget.Size.Height),
-                    EndPoint = new PointF(0, renderTarget.Size.Height - KEY_HEIGHT)
+                    EndPoint = new PointF(0, renderTarget.Size.Height - KeyHeight)
                 });
             BackgroundGradient = new LinearGradientBrush(renderTarget,
                 new GradientStopCollection(renderTarget, new[] {

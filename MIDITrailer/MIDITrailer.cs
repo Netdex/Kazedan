@@ -1,41 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Text;
-using System.Linq;
-using System.Reflection;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using Sanford.Multimedia.Midi;
-using System.Timers;
 
 using SlimDX;
 using SlimDX.DXGI;
 using SlimDX.Direct3D11;
 using SlimDX.Direct2D;
-using SlimDX.Direct3D9;
-using SlimDX.DirectWrite;
 using SlimDX.Windows;
-using Brush = SlimDX.Direct2D.Brush;
 using Device = SlimDX.Direct3D11.Device;
-using Factory = SlimDX.DirectWrite.Factory;
 using FactoryD2D = SlimDX.Direct2D.Factory;
 using FactoryDXGI = SlimDX.DXGI.Factory;
-using Font = System.Drawing.Font;
-using FontFamily = System.Drawing.FontFamily;
-using FontStyle = System.Drawing.FontStyle;
-using FontWeight = SlimDX.DirectWrite.FontWeight;
 using Format = SlimDX.DXGI.Format;
-using LinearGradientBrush = SlimDX.Direct2D.LinearGradientBrush;
 using PresentFlags = SlimDX.DXGI.PresentFlags;
 using Surface = SlimDX.DXGI.Surface;
 using SwapChain = SlimDX.DXGI.SwapChain;
 using SwapEffect = SlimDX.DXGI.SwapEffect;
-using Timer = System.Timers.Timer;
 using Usage = SlimDX.DXGI.Usage;
 
 using static MIDITrailer.GFXResources;
@@ -47,11 +27,11 @@ namespace MIDITrailer
     {
         private RenderTarget renderTarget;
 
-        private const string MIDIFile = @"D:\Music\midis\Necrofantasia.mid";
+        private const string MIDIFile = @"D:\Music\midis\th07_08.mid";
         public static MIDISequencer Sequencer;
 
         private long LastTick = Environment.TickCount;
-        public static long Elapsed = 0;
+        public static long Elapsed;
         private long LastSample = Environment.TickCount;
         private const long SampleRate = 1000;
 
@@ -64,10 +44,9 @@ namespace MIDITrailer
         {
             #region init_gfx
             var form = new RenderForm("MIDITrailer");
-
             var factory = new FactoryD2D();
             SizeF dpi = factory.DesktopDpi;
-            // Create swap chain description
+
             var swapChainDesc = new SwapChainDescription()
             {
                 BufferCount = 2,
@@ -99,7 +78,7 @@ namespace MIDITrailer
 
             // Freaking antialiasing lagging up my programs
             renderTarget.AntialiasMode = AntialiasMode.Aliased;
-            renderTarget.TextAntialiasMode = TextAntialiasMode.Grayscale | TextAntialiasMode.Aliased;
+            renderTarget.TextAntialiasMode = TextAntialiasMode.Grayscale;
 
             using (var DXGIFactory = swapChain.GetParent<FactoryDXGI>())
                 DXGIFactory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
@@ -110,10 +89,6 @@ namespace MIDITrailer
             #endregion
 
             GFXResources.Init(renderTarget);
-
-            #region init_timers
-
-            #endregion
 
             form.KeyDown += (o, e) =>
             {
@@ -129,15 +104,13 @@ namespace MIDITrailer
                         break;
                     case Keys.Up:
                         Sequencer.Delay += 100;
-                        Sequencer.Keyboard.Reset();
-                        Sequencer.NoteRenderer.Reset();
+                        Sequencer.Reset();
                         break;
                     case Keys.Down:
                         if (Sequencer.Delay >= 100)
                         {
                             Sequencer.Delay -= 100;
-                            Sequencer.Keyboard.Reset();
-                            Sequencer.NoteRenderer.Reset();
+                            Sequencer.Reset();
                         }
                         break;
                     case Keys.Left:
@@ -165,6 +138,7 @@ namespace MIDITrailer
 
             MessagePump.Run(form, () =>
             {
+                // Do sequencer tick
                 if (!Sequencer.Stopped)
                 {
                     Sequencer.UpdateNotePositions();
@@ -172,6 +146,7 @@ namespace MIDITrailer
                 }
                 Paint(renderTarget);
 
+                // Calculate profiling information
                 long tick = Environment.TickCount;
                 if (tick - LastSample >= SampleRate)
                 {
@@ -194,15 +169,11 @@ namespace MIDITrailer
             Sequencer.Load(MIDIFile);
         }
 
-        public void Reset()
-        {
-            Sequencer.Reset();
-        }
-
         public void Paint(RenderTarget target)
         {
             target.BeginDraw();
             target.Transform = Matrix3x2.Identity;
+            // Render scene
             Sequencer.Render(target);
             target.EndDraw();
         }
@@ -224,8 +195,6 @@ namespace MIDITrailer
 
             return scaled.ToString(format) + prefix;
         }
-
-
 
         public static void Main(string[] args)
         {
