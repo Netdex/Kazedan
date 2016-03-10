@@ -3,7 +3,7 @@ This software has been renamed to _Kazedan_.
 
 A program that visualizes a MIDI file on a piano, Synthesia style.
 
-![alt text](https://i.imgur.com/B8TFrmi.png)
+![alt text](http://i.imgur.com/hcP8WON.png)
 
 **Libraries Required**<br>
 [Sanford.Multimedia.Midi](https://github.com/tebjan/Sanford.Multimedia.Midi)<br>
