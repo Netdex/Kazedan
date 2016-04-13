@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using Sanford.Multimedia.Midi;
 using SlimDX.Direct2D;
 using SlimDX.DirectWrite;
+using static Kazedan.GFXResources;
 using Timer = System.Timers.Timer;
 
 namespace Kazedan
@@ -83,7 +84,7 @@ namespace Kazedan
                 }
                 else if (cmd == ChannelCommand.NoteOn)
                 {
-                    Note n = new Note()
+                    Note n = new Note
                     {
                         Key = data1,
                         Length = 0,
@@ -146,13 +147,13 @@ namespace Kazedan
             };
             sequence.LoadCompleted += delegate (object o, AsyncCompletedEventArgs args)
             {
+                Loading = -1;
                 if (args.Cancelled)
                 {
                     MessageBox.Show("The operation was cancelled.", "MIDITrailer - Error", MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                     return;
                 }
-                Loading = -1;
                 sequencer.Sequence = sequence;
                 sequencer.Start();
             };
@@ -217,7 +218,7 @@ namespace Kazedan
         {
             // Fill background depending on render mode
             if (NoteRenderer.RenderFancy)
-                target.FillRectangle(GFXResources.BackgroundGradient, new RectangleF(PointF.Empty, target.Size));
+                target.FillRectangle(BackgroundGradient, new RectangleF(PointF.Empty, target.Size));
             else
                 target.Clear(Color.Black);
 
@@ -229,9 +230,9 @@ namespace Kazedan
             if (sequence?.GetLength() > 0)
             {
                 float percentComplete = 1f * sequencer.Position / sequence.GetLength();
-                target.FillRectangle(GFXResources.DefaultBrushes[5],
-                    new RectangleF(GFXResources.ProgressBarBounds.X, GFXResources.ProgressBarBounds.Y, GFXResources.ProgressBarBounds.Width * percentComplete, GFXResources.ProgressBarBounds.Height));
-                target.DrawRectangle(GFXResources.DefaultBrushes[2], GFXResources.ProgressBarBounds, .8f);
+                target.FillRectangle(DefaultBrushes[5],
+                    new RectangleF(ProgressBarBounds.X, ProgressBarBounds.Y, ProgressBarBounds.Width * percentComplete, ProgressBarBounds.Height));
+                target.DrawRectangle(DefaultBrushes[2], ProgressBarBounds, .8f);
             }
 
             // Render debug information
@@ -248,7 +249,7 @@ namespace Kazedan
                     "  renderer: " + (NoteRenderer.RenderFancy ? "fancy" : NoteRenderer.UserEnabledFancy ? "forced-fast" : "fast"),
                     "  seq_tick: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength()),
                     "     delay: " + Delay+"ms",
-                    "       kbd: " + GFXResources.NoteCount + " key(s) +" + GFXResources.NoteOffset + " offset"
+                    "       kbd: " + NoteCount + " key(s) +" + NoteOffset + " offset"
                 };
 
             }
@@ -257,19 +258,19 @@ namespace Kazedan
                 debug = new[] { usage };
             }
             string debugText = debug.Aggregate("", (current, ss) => current + ss + '\n');
-            target.DrawText(debugText, GFXResources.DebugFormat, GFXResources.DebugRectangle, GFXResources.DefaultBrushes[0], DrawTextOptions.None,
+            target.DrawText(debugText, DebugFormat, DebugRectangle, DefaultBrushes[0], DrawTextOptions.None,
                 MeasuringMethod.Natural);
 
             // Render large title text
             if (Loading == 0)
-                target.DrawText("INITIALIZING MIDI DEVICES", GFXResources.HugeFormat, GFXResources.FullRectangle, GFXResources.DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
-            else if (Loading > 0)
-                target.DrawText("LOADING " + Loading + "%", GFXResources.HugeFormat, GFXResources.FullRectangle, GFXResources.DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
+                target.DrawText("INITIALIZING MIDI DEVICES", HugeFormat, FullRectangle, DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
+            else if (Loading > 0 && Loading < 100)
+                target.DrawText("LOADING " + Loading + "%", HugeFormat, FullRectangle, DefaultBrushes[0], DrawTextOptions.None, MeasuringMethod.Natural);
         }
 
         public void UpdateNotePositions()
         {
-            int keyboardY = GFXResources.Bounds.Height - GFXResources.KeyHeight;
+            int keyboardY = Bounds.Height - KeyHeight;
             long now = Stopwatch.ElapsedMilliseconds;
             float speed = 1.0f * keyboardY / Delay;
             // Update all note positions

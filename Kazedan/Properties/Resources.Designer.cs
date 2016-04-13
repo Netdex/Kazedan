@@ -9,6 +9,9 @@
 //------------------------------------------------------------------------------
 
 namespace Kazedan.Properties {
+    using System;
+    
+    
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -60,9 +63,9 @@ namespace Kazedan.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
-        internal static System.Drawing.Icon miditrailer {
+        internal static System.Drawing.Icon KazedanIcon {
             get {
-                object obj = ResourceManager.GetObject("miditrailer", resourceCulture);
+                object obj = ResourceManager.GetObject("KazedanIcon", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
             }
         }

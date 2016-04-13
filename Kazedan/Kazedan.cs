@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Threading;
 using System.Windows.Forms;
@@ -17,14 +18,13 @@ using SwapChain = SlimDX.DXGI.SwapChain;
 using SwapEffect = SlimDX.DXGI.SwapEffect;
 using Usage = SlimDX.DXGI.Usage;
 
-// ReSharper disable AccessToDisposedClosure
 namespace Kazedan
 {
     class Kazedan
     {
         private RenderTarget renderTarget;
 
-        private const string MIDIFile = @"D:\Music\midis\th07_08.mid";
+        private const string MIDIFile = @"";
         public static MIDISequencer Sequencer;
 
         private long LastTick = Environment.TickCount;
@@ -37,10 +37,11 @@ namespace Kazedan
             Sequencer = new MIDISequencer();
         }
 
+        [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
         public void Init()
         {
             #region init_gfx
-            var form = new RenderForm("MIDITrailer");
+            var form = new RenderForm("Kazedan");
             var factory = new FactoryD2D();
             SizeF dpi = factory.DesktopDpi;
 
@@ -76,13 +77,13 @@ namespace Kazedan
             // Freaking antialiasing lagging up my programs
             renderTarget.AntialiasMode = AntialiasMode.Aliased;
             renderTarget.TextAntialiasMode = TextAntialiasMode.Grayscale;
-
+            
             using (var DXGIFactory = swapChain.GetParent<FactoryDXGI>())
                 DXGIFactory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
 
             form.ClientSize = GFXResources.Bounds;
             form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            form.Icon = Properties.Resources.miditrailer;
+            form.Icon = Properties.Resources.KazedanIcon;
             #endregion
 
             GFXResources.Init(renderTarget);

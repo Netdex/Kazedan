@@ -49,8 +49,8 @@ namespace Kazedan
         public static readonly RectangleF FullRectangle = new RectangleF(0, 0, Bounds.Width, Bounds.Height);
         public static RoundedRectangle NoteRoundRect = new RoundedRectangle
         {
-            RadiusX = 3,
-            RadiusY = 3
+            RadiusX = 7,
+            RadiusY = 7
         };
         public static RectangleF NoteRect;
         public static PointF GradientPoint;
