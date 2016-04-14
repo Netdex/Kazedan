@@ -88,13 +88,19 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Event.cs" />
-    <Compile Include="GFXResources.cs" />
-    <Compile Include="MIDIKeyboard.cs" />
-    <Compile Include="MIDISequencer.cs" />
+    <Compile Include="Construct\Event.cs" />
+    <Compile Include="Graphics\GFXResources.cs" />
+    <Compile Include="Construct\MIDIKeyboard.cs" />
+    <Compile Include="Construct\MIDISequencer.cs" />
+    <Compile Include="Graphics\Renderer\FancyKeyRenderer.cs" />
+    <Compile Include="Graphics\Renderer\FancyNoteRenderer.cs" />
+    <Compile Include="Graphics\Renderer\FastKeyRenderer.cs" />
+    <Compile Include="Graphics\Renderer\FastNoteRenderer.cs" />
+    <Compile Include="Graphics\Renderer\KeyRenderer.cs" />
+    <Compile Include="Graphics\Renderer\NoteRenderer.cs" />
     <Compile Include="Kazedan.cs" />
-    <Compile Include="Note.cs" />
-    <Compile Include="NoteRenderer.cs" />
+    <Compile Include="Construct\Note.cs" />
+    <Compile Include="Construct\NoteManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

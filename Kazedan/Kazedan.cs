@@ -3,6 +3,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Threading;
 using System.Windows.Forms;
+using Kazedan.Construct;
+using Kazedan.Graphics;
 using SlimDX;
 using SlimDX.Direct2D;
 using SlimDX.Direct3D11;
@@ -24,7 +26,7 @@ namespace Kazedan
     {
         private RenderTarget renderTarget;
 
-        private const string MIDIFile = @"";
+        private const string MIDIFile = @"D:\Music\midis\banomico.mid";
         public static MIDISequencer Sequencer;
 
         private long LastTick = Environment.TickCount;
@@ -97,8 +99,8 @@ namespace Kazedan
                         swapChain.IsFullScreen = !swapChain.IsFullScreen;
                         break;
                     case Keys.F:
-                        Sequencer.NoteRenderer.UserEnabledFancy = !Sequencer.NoteRenderer.UserEnabledFancy;
-                        Sequencer.NoteRenderer.RenderFancy = Sequencer.NoteRenderer.UserEnabledFancy;
+                        Sequencer.NoteManager.UserEnabledFancy = !Sequencer.NoteManager.UserEnabledFancy;
+                        Sequencer.NoteManager.RenderFancy = Sequencer.NoteManager.UserEnabledFancy;
                         break;
                     case Keys.Up:
                         Sequencer.Delay += 100;

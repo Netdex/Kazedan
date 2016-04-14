@@ -6,7 +6,7 @@ using SlimDX.DirectWrite;
 using Brush = SlimDX.Direct2D.Brush;
 using Factory = SlimDX.DirectWrite.Factory;
 
-namespace Kazedan
+namespace Kazedan.Graphics
 {
     class GFXResources
     {

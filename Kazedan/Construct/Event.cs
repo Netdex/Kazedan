@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Kazedan
+namespace Kazedan.Construct
 {
     class Event
     {
