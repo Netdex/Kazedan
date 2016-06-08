@@ -6,16 +6,16 @@ namespace Kazedan.Graphics.Renderer
 {
     class FancyNoteRenderer : NoteRenderer
     {
-        public override void Render(RenderTarget target, List<Construct.Note> notes, MIDIKeyboard keyboard)
+        public override void Render(RenderTarget target, List<Note> notes, MIDIKeyboard keyboard)
         {
-            foreach (Construct.Note n in notes)
+            foreach (Note n in notes)
             {
-                if (n.Key > GFXResources.NoteOffset && n.Key < GFXResources.NoteOffset + GFXResources.NoteCount)
+                if (n.Key >= GFXResources.NoteOffset && n.Key < GFXResources.NoteOffset + GFXResources.NoteCount && n.Length > 0 && n.Velocity > 0)
                 {
                     // Calculate pitchbend offset to give notes a sliding effect
                     float wheelOffset = (keyboard.Pitchwheel[n.Channel] - 8192) / 8192f * 2 * GFXResources.KeyWidth;
                     float bottom = n.Position + n.Length;
-                    float left = n.Key * GFXResources.KeyWidth + (bottom >= GFXResources.KeyboardY ? wheelOffset : 0) - GFXResources.NoteOffset * GFXResources.KeyWidth;
+                    float left = n.Key * GFXResources.KeyWidth + wheelOffset - GFXResources.NoteOffset * GFXResources.KeyWidth;
                     GFXResources.NoteRoundRect.Left = left;
                     GFXResources.NoteRoundRect.Top = n.Position;
                     GFXResources.NoteRoundRect.Right = left + GFXResources.KeyWidth;
@@ -30,6 +30,7 @@ namespace Kazedan.Graphics.Renderer
                     GFXResources.GradientPoint.X = GFXResources.NoteRoundRect.Right;
                     gradientBrush.EndPoint = GFXResources.GradientPoint;
                     target.FillRoundedRectangle(GFXResources.ChannelGradientBrushes[n.Channel], GFXResources.NoteRoundRect);
+                    
                 }
             }
         }

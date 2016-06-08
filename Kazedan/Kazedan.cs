@@ -25,8 +25,8 @@ namespace Kazedan
     class Kazedan
     {
         private RenderTarget renderTarget;
+        private RenderForm Form;
 
-        private const string MIDIFile = @"D:\Music\midis\banomico.mid";
         public static MIDISequencer Sequencer;
 
         private long LastTick = Environment.TickCount;
@@ -43,7 +43,7 @@ namespace Kazedan
         public void Init()
         {
             #region init_gfx
-            var form = new RenderForm("Kazedan");
+            Form = new RenderForm("Kazedan");
             var factory = new FactoryD2D();
             SizeF dpi = factory.DesktopDpi;
 
@@ -51,7 +51,7 @@ namespace Kazedan
             {
                 BufferCount = 2,
                 Usage = Usage.RenderTargetOutput,
-                OutputHandle = form.Handle,
+                OutputHandle = Form.Handle,
                 IsWindowed = true,
                 ModeDescription = new ModeDescription((int)(GFXResources.Bounds.Width * (dpi.Width / 96f)), (int)(GFXResources.Bounds.Height * (dpi.Height / 96f)), new Rational(60, 1), Format.R8G8B8A8_UNorm),
                 SampleDescription = new SampleDescription(1, 0),
@@ -81,16 +81,16 @@ namespace Kazedan
             renderTarget.TextAntialiasMode = TextAntialiasMode.Grayscale;
             
             using (var DXGIFactory = swapChain.GetParent<FactoryDXGI>())
-                DXGIFactory.SetWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
+                DXGIFactory.SetWindowAssociation(Form.Handle, WindowAssociationFlags.IgnoreAltEnter);
 
-            form.ClientSize = GFXResources.Bounds;
-            form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            form.Icon = Properties.Resources.KazedanIcon;
+            Form.ClientSize = GFXResources.Bounds;
+            Form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            Form.Icon = Properties.Resources.KazedanIcon;
             #endregion
 
             GFXResources.Init(renderTarget);
 
-            form.KeyDown += (o, e) =>
+            Form.KeyDown += (o, e) =>
             {
                 Keys key = e.KeyCode;
                 switch (key)
@@ -133,10 +133,19 @@ namespace Kazedan
                 }
             };
 
-            Thread t = new Thread(Load);
-            t.Start();
+            Thread loadThread = new Thread(Load);
+            loadThread.Start();
 
-            MessagePump.Run(form, () =>
+            Thread controlThread = new Thread(() =>
+            {
+                loadThread.Join();
+                Application.EnableVisualStyles();
+                Application.Run(new KZControl(Sequencer));
+            });
+            controlThread.SetApartmentState(ApartmentState.STA);
+            controlThread.Start();
+
+            MessagePump.Run(Form, () =>
             {
                 // Do sequencer tick
                 if (!Sequencer.Stopped)
@@ -166,7 +175,6 @@ namespace Kazedan
         private void Load()
         {
             Sequencer.Init();
-            Sequencer.Load(MIDIFile);
         }
 
         public void Paint(RenderTarget target)

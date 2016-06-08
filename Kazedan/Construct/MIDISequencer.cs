@@ -15,7 +15,7 @@ namespace Kazedan.Construct
 {
     class MIDISequencer : IDisposable
     {
-        public int Delay { get; set; } = 1000;
+        public int Delay { get; set; } = 500;
         public bool ShowDebug { get; set; } = true;
         private int Loading { get; set; } = -1;
         private long LastFancyTick { get; set; }
@@ -23,7 +23,7 @@ namespace Kazedan.Construct
         public bool Initialized { get; private set; }
         private readonly Stopwatch Stopwatch;
 
-        public string MIDIFile = @"Loading...";
+        public string MIDIFile = @"null";
 
         private OutputDevice outDevice;
         private Sequence sequence;
@@ -51,7 +51,7 @@ namespace Kazedan.Construct
             Initialized = true;
 
             // Create timer for event management
-            eventTimer = new Timer(15);
+            eventTimer = new Timer(10);
             eventTimer.Elapsed += delegate
             {
                 lock (NoteManager.Backlog)
@@ -69,7 +69,7 @@ namespace Kazedan.Construct
             outDevice = new OutputDevice(0);
             sequencer = new Sequencer();
             sequence = new Sequence();
-
+            Loading = -1;
             // Set custom event handlers for sequencer
             sequencer.ChannelMessagePlayed += delegate (object o, ChannelMessageEventArgs args)
             {
@@ -147,6 +147,8 @@ namespace Kazedan.Construct
                 foreach (ChannelMessage message in args.Messages)
                     lock (NoteManager.Backlog)
                         NoteManager.Backlog.Enqueue(new Event(() => outDevice.Send(message), Stopwatch.ElapsedMilliseconds, Delay));
+                // Stop everything when the MIDI is done playing
+                Stop();
             };
             sequence.LoadCompleted += delegate (object o, AsyncCompletedEventArgs args)
             {
@@ -158,19 +160,18 @@ namespace Kazedan.Construct
                     return;
                 }
                 sequencer.Sequence = sequence;
-                sequencer.Start();
             };
             sequence.LoadProgressChanged += delegate (object sender, ProgressChangedEventArgs args)
             {
                 Loading = args.ProgressPercentage;
             };
-            // Begin playing something
-            Start();
+            
         }
 
         public void Load(string file)
         {
             MIDIFile = file;
+            sequencer.Position = 0;
             sequence.LoadAsync(file);
         }
 
@@ -178,9 +179,11 @@ namespace Kazedan.Construct
         {
             Keyboard.Reset();
             NoteManager.Reset();
-            for (int i = 0; i < 16; i++)
-                for (int j = 0; j < 128; j++)
-                    outDevice.Send(new ChannelMessage(ChannelCommand.NoteOff, i, j));
+            // Send NoteOFF messages to shut up every channel
+            if (outDevice != null)
+                for (int i = 0; i < 16; i++)
+                    for (int j = 0; j < 128; j++)
+                        outDevice.Send(new ChannelMessage(ChannelCommand.NoteOff, i, j));
         }
 
         public void Dispose()
@@ -215,6 +218,14 @@ namespace Kazedan.Construct
 
             Stopwatch.Start();
             Stopped = false;
+        }
+
+        public void Jump(int tick)
+        {
+            Reset();
+            sequencer.Position = tick;
+            if(Stopped)
+                sequencer.Stop();
         }
 
         public void Render(RenderTarget target)
@@ -264,7 +275,8 @@ namespace Kazedan.Construct
                     "  renderer: " + (NoteManager.RenderFancy ? "fancy" : NoteManager.UserEnabledFancy ? "forced-fast" : "fast"),
                     "  seq_tick: " + (sequence == null ? "? / ?" : sequencer.Position + " / " + sequence.GetLength()),
                     "     delay: " + Delay+"ms",
-                    "       kbd: " + GFXResources.NoteCount + " key(s) +" + GFXResources.NoteOffset + " offset"
+                    "       kbd: " + GFXResources.NoteCount + " key(s) +" + GFXResources.NoteOffset + " offset",
+                    "   stopped: " + Stopped
                 };
 
             }
@@ -285,7 +297,7 @@ namespace Kazedan.Construct
 
         public void UpdateNotePositions()
         {
-            int keyboardY = GFXResources.Bounds.Height - GFXResources.KeyHeight;
+            int keyboardY = (int)GFXResources.KeyboardY;
             long now = Stopwatch.ElapsedMilliseconds;
             float speed = 1.0f * keyboardY / Delay;
             // Update all note positions
@@ -294,15 +306,19 @@ namespace Kazedan.Construct
                 for (int i = 0; i < NoteManager.Notes.Count; i++)
                 {
                     Note n = NoteManager.Notes[i];
-                    if (!n.Playing)
-                        n.Position = (now - n.Time) * speed - n.Length;
-                    else
-                        n.Length = (now - n.Time) * speed;
                     if (n.Position > keyboardY)
                     {
                         NoteManager.Notes.RemoveAt(i);
                         i--;
                     }
+                    else
+                    {
+                        if (n.Playing)
+                            n.Length = (now - n.Time) * speed;
+                        else
+                            n.Position = (now - n.Time) * speed - n.Length;
+                    }
+
                 }
             }
         }

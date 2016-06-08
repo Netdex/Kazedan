@@ -6,11 +6,11 @@ namespace Kazedan.Graphics.Renderer
 {
     class FastNoteRenderer : NoteRenderer
     {
-        public override void Render(RenderTarget target, List<Construct.Note> notes, MIDIKeyboard keyboard)
+        public override void Render(RenderTarget target, List<Note> notes, MIDIKeyboard keyboard)
         {
-            foreach (Construct.Note n in notes)
+            foreach (Note n in notes)
             {
-                if (n.Key > GFXResources.NoteOffset && n.Key < GFXResources.NoteOffset + GFXResources.NoteCount)
+                if (n.Key >= GFXResources.NoteOffset && n.Key < GFXResources.NoteOffset + GFXResources.NoteCount && n.Length > 0 && n.Velocity > 0)
                 {
                     // Calculate pitchbend offset to give notes a sliding effect
                     /* DISABLED FOR PERFORMANCE

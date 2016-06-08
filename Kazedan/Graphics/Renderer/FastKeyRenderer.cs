@@ -106,10 +106,6 @@ namespace Kazedan.Graphics.Renderer
                         }
                     }
                 }
-            }
-            for (int i = GFXResources.NoteOffset; i < GFXResources.NoteOffset + GFXResources.NoteCount; i++)
-            {
-                float keyX = i * GFXResources.KeyWidth - GFXResources.NoteOffset * GFXResources.KeyWidth;
                 // Draw note separator lines
                 if (GFXResources.IsBlack[i % 12])
                 {

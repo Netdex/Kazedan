@@ -92,6 +92,12 @@
     <Compile Include="Graphics\GFXResources.cs" />
     <Compile Include="Construct\MIDIKeyboard.cs" />
     <Compile Include="Construct\MIDISequencer.cs" />
+    <Compile Include="Graphics\KZControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Graphics\KZControl.Designer.cs">
+      <DependentUpon>KZControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="Graphics\Renderer\FancyKeyRenderer.cs" />
     <Compile Include="Graphics\Renderer\FancyNoteRenderer.cs" />
     <Compile Include="Graphics\Renderer\FastKeyRenderer.cs" />
@@ -102,6 +108,9 @@
     <Compile Include="Construct\Note.cs" />
     <Compile Include="Construct\NoteManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Graphics\KZControl.resx">
+      <DependentUpon>KZControl.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

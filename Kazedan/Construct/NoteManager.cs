@@ -9,7 +9,7 @@ namespace Kazedan.Construct
         public readonly Note[,] LastPlayed = new Note[16, 128];
 
         public const int ReturnToFancyDelay = 3000;
-        public const int ForcedFastThreshold = 1750;
+        public const int ForcedFastThreshold = 3000;
 
         public bool UserEnabledFancy = true;
         public bool RenderFancy = true;

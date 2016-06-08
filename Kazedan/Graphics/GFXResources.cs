@@ -10,9 +10,9 @@ namespace Kazedan.Graphics
 {
     class GFXResources
     {
-        public static readonly Size Bounds = new Size(1600, 900);
-        public static int KeyHeight = 80;
-        public static int BlackKeyHeight = 40;
+        public static readonly Size Bounds = new Size(1280, 720);
+        public static int KeyHeight = 60;
+        public static int BlackKeyHeight = 30;
         public static int NoteOffset = 21;
         public static int NoteCount = 88;
 
@@ -49,8 +49,8 @@ namespace Kazedan.Graphics
         public static readonly RectangleF FullRectangle = new RectangleF(0, 0, Bounds.Width, Bounds.Height);
         public static RoundedRectangle NoteRoundRect = new RoundedRectangle
         {
-            RadiusX = 7,
-            RadiusY = 7
+            RadiusX = 4,
+            RadiusY = 4
         };
         public static RectangleF NoteRect;
         public static PointF GradientPoint;
@@ -114,9 +114,9 @@ namespace Kazedan.Graphics
             {
                 DebugFormat = new TextFormat(textFactory, "Consolas", FontWeight.Bold,
                     SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 14, "en-us");
-                SmallFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
+                SmallFormat = new TextFormat(textFactory, "Century Gothic", FontWeight.UltraBold,
                     SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 10, "en-us");
-                HugeFormat = new TextFormat(textFactory, "Consolas", FontWeight.UltraBold,
+                HugeFormat = new TextFormat(textFactory, "Century Gothic", FontWeight.UltraBold,
                    SlimDX.DirectWrite.FontStyle.Normal, FontStretch.Normal, 50, "en-us")
                 {
                     TextAlignment = TextAlignment.Center,
