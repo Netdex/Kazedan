@@ -11,14 +11,14 @@ A program that visualizes a MIDI file on a piano, Synthesia style.
 
 ### Demonstrations (using various MIDI files)
 **version 0.0.1.0 (GDI+ rendering engine)**<br>
-[1](https://cdn.streamable.com/video/mp4/2ta5.mp4)<br>
-[2](https://cdn.streamable.com/video/mp4/gu1p.mp4)<br>
+[1](https://streamable.com/2ta5)<br>
+[2](https://streamable.com/gu1p)<br>
 
 **version 0.1.0.0 (Direct2D rendering engine)**<br>
-[3](https://cdn.streamable.com/video/mp4/kc2z.mp4)<br>
-[4](https://cdn.streamable.com/video/mp4/m7pb.mp4)<br>
-[5](https://cdn.streamable.com/video/mp4/mj1e.mp4)<br>
-[6](https://cdn.streamable.com/video/mp4/d19m.mp4)<br>
+[3](https://streamable.com/kc2z)<br>
+[4](https://streamable.com/m7pb)<br>
+[5](https://streamable.com/mj1e)<br>
+[6](https://streamable.com/d19m)<br>
 
 **version 0.8.0.0 (Redesigned rendering engine)**<br>
 [7](https://www.youtube.com/watch?v=lCzUmw7Az2k)<br>
