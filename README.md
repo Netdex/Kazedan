@@ -5,7 +5,8 @@ This software has been renamed to _Kazedan_.
 A program that visualizes a MIDI file on a piano, Synthesia style.
 
 [Demonstration #1](https://www.youtube.com/watch?v=ZX1CaQDmyOo)<br>
-[Demonstration #2](https://www.youtube.com/watch?v=W6EMQiqftfM)
+[Demonstration #2](https://www.youtube.com/watch?v=W6EMQiqftfM)<br>
+[Demonstration #3](https://youtu.be/9EoHmNg9MWs)
 
 ![alt text](http://i.imgur.com/hcP8WON.png)
 
