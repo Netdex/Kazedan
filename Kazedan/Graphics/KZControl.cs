@@ -52,5 +52,10 @@ namespace Kazedan.Graphics
         {
             Sequencer.Jump((int)jumpTick.Value);
         }
+
+        private void KZControl_Load(object sender, EventArgs e)
+        {
+            
+        }
     }
 }

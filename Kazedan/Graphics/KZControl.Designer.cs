@@ -114,6 +114,7 @@
             this.Name = "KZControl";
             this.Text = "KZControl";
             this.TopMost = true;
+            this.Load += new System.EventHandler(this.KZControl_Load);
             ((System.ComponentModel.ISupportInitialize)(this.jumpTick)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();

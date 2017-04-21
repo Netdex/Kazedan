@@ -11,8 +11,8 @@ namespace Kazedan.Graphics
     class GFXResources
     {
         public static readonly Size Bounds = new Size(1280, 720);
-        public static int KeyHeight = 60;
-        public static int BlackKeyHeight = 30;
+        public static int KeyHeight = 100;
+        public static int BlackKeyHeight = 50;
         public static int NoteOffset = 21;
         public static int NoteCount = 88;
 
@@ -46,7 +46,7 @@ namespace Kazedan.Graphics
         public static TextFormat HugeFormat;
 
         public static readonly RectangleF DebugRectangle = new RectangleF(10, 10, 500, 0);
-        public static readonly RectangleF FullRectangle = new RectangleF(0, 0, Bounds.Width, Bounds.Height);
+        public static RectangleF FullRectangle;
         public static RoundedRectangle NoteRoundRect = new RoundedRectangle
         {
             RadiusX = 4,
@@ -54,12 +54,15 @@ namespace Kazedan.Graphics
         };
         public static RectangleF NoteRect;
         public static PointF GradientPoint;
-        public static readonly RectangleF ProgressBarBounds =
-            new RectangleF(20 + DebugRectangle.X + DebugRectangle.Width, 20,
-                Bounds.Width - 40 - DebugRectangle.X - DebugRectangle.Width, 20);
+        public static RectangleF ProgressBarBounds;
 
         public static void Init(RenderTarget renderTarget)
         {
+            FullRectangle = new RectangleF(0, 0, Bounds.Width, Bounds.Height);
+            ProgressBarBounds =
+            new RectangleF(20 + DebugRectangle.X + DebugRectangle.Width, 20,
+                Bounds.Width - 40 - DebugRectangle.X - DebugRectangle.Width, 20);
+
             // Generate common brushes
             DefaultBrushes = new Brush[DefaultColors.Length];
             for (int i = 0; i < DefaultColors.Length; i++)

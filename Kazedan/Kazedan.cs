@@ -26,6 +26,7 @@ namespace Kazedan
     {
         private RenderTarget renderTarget;
         private RenderForm Form;
+        private KZControl ControlForm;
 
         public static MIDISequencer Sequencer;
 
@@ -133,17 +134,29 @@ namespace Kazedan
                 }
             };
 
+            // Start loading thread
             Thread loadThread = new Thread(Load);
             loadThread.Start();
 
+            // Show controller window
             Thread controlThread = new Thread(() =>
             {
                 loadThread.Join();
                 Application.EnableVisualStyles();
-                Application.Run(new KZControl(Sequencer));
+                ControlForm = new KZControl(Sequencer);
+                Application.Run(ControlForm);
             });
             controlThread.SetApartmentState(ApartmentState.STA);
             controlThread.Start();
+            
+            // Make sure the control form closes when the main form does
+            Form.Disposed += (o,e) =>
+            {
+                ControlForm.BeginInvoke((MethodInvoker) delegate
+                {
+                    ControlForm.Close();
+                });
+            };
 
             MessagePump.Run(Form, () =>
             {
