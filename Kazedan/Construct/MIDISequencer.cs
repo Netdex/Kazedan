@@ -134,11 +134,14 @@ namespace Kazedan.Construct
                     }, Stopwatch.ElapsedMilliseconds, Delay));
                 }
             };
-            sequencer.SysExMessagePlayed += delegate (object o, SysExMessageEventArgs args)
-            {
-                lock (NoteManager.Backlog)
-                    NoteManager.Backlog.Enqueue(new Event(() => { try { outDevice.Send(args.Message); } catch { } }, Stopwatch.ElapsedMilliseconds, Delay));
-            };
+
+            // BUG A bug in the Sanford.Multimedia.Midi library prevents certain SysEx messages from playing
+            // Disabling SysEx messages completely solves this issue
+            //sequencer.SysExMessagePlayed += delegate (object o, SysExMessageEventArgs args)
+            //{
+            //    lock (NoteManager.Backlog)
+            //        NoteManager.Backlog.Enqueue(new Event(() => { try { outDevice.Send(args.Message); } catch { } }, Stopwatch.ElapsedMilliseconds, Delay));
+            //};
             sequencer.Chased += delegate (object o, ChasedEventArgs args)
             {
                 foreach (ChannelMessage message in args.Messages)
@@ -174,6 +177,7 @@ namespace Kazedan.Construct
         public void Load(string file)
         {
             MIDIFile = file;
+            sequencer.Stop();
             sequencer.Position = 0;
             sequence.LoadAsync(file);
         }

@@ -10,7 +10,7 @@ namespace Kazedan.Graphics
 {
     class GFXResources
     {
-        public static readonly Size Bounds = new Size(1280, 720);
+        public static readonly Size Bounds = new Size(1600, 900);
         public static int KeyHeight = 100;
         public static int BlackKeyHeight = 50;
         public static int NoteOffset = 21;

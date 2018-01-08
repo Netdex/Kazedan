@@ -80,7 +80,7 @@ namespace Kazedan
             // Freaking antialiasing lagging up my programs
             renderTarget.AntialiasMode = AntialiasMode.Aliased;
             renderTarget.TextAntialiasMode = TextAntialiasMode.Grayscale;
-            
+
             using (var DXGIFactory = swapChain.GetParent<FactoryDXGI>())
                 DXGIFactory.SetWindowAssociation(Form.Handle, WindowAssociationFlags.IgnoreAltEnter);
 
@@ -148,11 +148,11 @@ namespace Kazedan
             });
             controlThread.SetApartmentState(ApartmentState.STA);
             controlThread.Start();
-            
+
             // Make sure the control form closes when the main form does
-            Form.Disposed += (o,e) =>
+            Form.Disposed += (o, e) =>
             {
-                ControlForm.BeginInvoke((MethodInvoker) delegate
+                ControlForm?.BeginInvoke((MethodInvoker)delegate
                 {
                     ControlForm.Close();
                 });
